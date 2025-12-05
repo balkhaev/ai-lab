@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 const features = [
   {
-    href: "/image",
+    href: "/image" as const,
     icon: ImageIcon,
     title: "Генерация изображений",
     description:
@@ -25,7 +25,7 @@ const features = [
     glowColor: "rgba(255, 45, 117, 0.3)",
   },
   {
-    href: "/video",
+    href: "/video" as const,
     icon: Video,
     title: "Генерация видео",
     description:
@@ -34,7 +34,7 @@ const features = [
     glowColor: "rgba(168, 85, 247, 0.3)",
   },
   {
-    href: "/compare",
+    href: "/compare" as const,
     icon: MessageSquare,
     title: "Сравнение LLM",
     description:
