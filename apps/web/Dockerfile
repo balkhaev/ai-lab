@@ -9,7 +9,7 @@ COPY packages/db/package.json ./packages/db/
 COPY apps/web/package.json ./apps/web/
 
 # Install bun for dependency resolution (same version as local)
-RUN npm install -g bun@1.2.21
+RUN npm install -g bun@1.3.3
 RUN bun install --frozen-lockfile
 
 # Builder stage
