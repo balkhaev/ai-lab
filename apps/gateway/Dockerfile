@@ -17,9 +17,9 @@ RUN bun install --frozen-lockfile
 COPY packages/ ./packages/
 COPY apps/gateway/ ./apps/gateway/
 
-# Generate Prisma client
+# Generate Prisma client (dummy URL for generation, real connection not needed)
 WORKDIR /app/packages/db
-RUN bunx prisma generate
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" bunx prisma generate
 
 # Build
 WORKDIR /app/apps/gateway
