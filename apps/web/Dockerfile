@@ -1,12 +1,13 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Copy package files
+# Copy all workspace package.json files for correct lockfile resolution
 COPY package.json bun.lock* ./
 COPY packages/config/package.json ./packages/config/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/db/package.json ./packages/db/
 COPY apps/web/package.json ./apps/web/
+COPY apps/gateway/package.json ./apps/gateway/
 
 # Install bun for dependency resolution (same version as local)
 RUN npm install -g bun@1.3.3
