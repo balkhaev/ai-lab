@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   Download,
   ImageIcon,
+  Lightbulb,
   Loader2,
   Play,
   RefreshCw,
@@ -14,7 +15,13 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardGlass,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -24,6 +31,7 @@ import {
   getVideoStatus,
   type VideoTaskResponse,
 } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 type GeneratedVideo = {
   video_base64: string;
@@ -43,10 +51,10 @@ export default function VideoPage() {
     null
   );
   const [gallery, setGallery] = useState<GeneratedVideo[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Cleanup polling on unmount
   useEffect(
     () => () => {
       if (pollingRef.current) {
@@ -121,6 +129,7 @@ export default function VideoPage() {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragOver(false);
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
       setSelectedImage(file);
@@ -134,6 +143,11 @@ export default function VideoPage() {
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
   };
 
   const clearImage = () => {
@@ -160,286 +174,348 @@ export default function VideoPage() {
     mutation.isPending || currentTask?.status === "processing";
 
   return (
-    <div className="container mx-auto max-w-7xl space-y-6 p-4">
-      <div className="space-y-2">
-        <h1 className="font-bold text-3xl tracking-tight">Генерация видео</h1>
-        <p className="text-muted-foreground">
-          Оживите изображения с помощью wan2.2-Remix (image-to-video)
-        </p>
-      </div>
+    <div className="flex h-full flex-col lg:flex-row">
+      {/* Main content area */}
+      <div className="flex-1 overflow-auto p-6">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="mb-2 font-bold text-2xl tracking-tight">
+            <span className="gradient-neon-text">Генерация</span> видео
+          </h1>
+          <p className="text-muted-foreground">
+            Оживите изображения с помощью wan2.2-Remix (image-to-video)
+          </p>
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_350px]">
-        {/* Main content */}
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="space-y-4 pt-4">
-              {/* Image upload area */}
-              <div className="space-y-2">
-                <Label>Исходное изображение</Label>
-                <div
-                  className={`rounded-lg border-2 border-dashed p-4 text-center transition-colors ${
-                    imagePreview
-                      ? "border-primary"
-                      : "border-muted-foreground/25 hover:border-muted-foreground/50"
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                >
-                  {imagePreview ? (
-                    <div className="relative inline-block">
-                      <img
-                        alt="Preview"
-                        className="mx-auto max-h-64 rounded-lg"
-                        src={imagePreview}
-                      />
-                      <Button
-                        className="-top-2 -right-2 absolute h-6 w-6"
-                        onClick={clearImage}
-                        size="icon"
-                        variant="destructive"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+        {/* Upload and prompt card */}
+        <CardGlass className="mb-6">
+          <CardContent className="space-y-4 pt-6">
+            {/* Image upload area */}
+            <div className="space-y-2">
+              <Label className="font-medium text-sm">
+                Исходное изображение
+              </Label>
+              <div
+                className={cn(
+                  "relative rounded-xl border-2 border-dashed p-6 text-center transition-all duration-300",
+                  isDragOver
+                    ? "border-primary bg-primary/5 shadow-[0_0_30px_rgba(255,45,117,0.2)]"
+                    : imagePreview
+                      ? "border-primary/50 bg-primary/5"
+                      : "border-border hover:border-primary/30 hover:bg-secondary/30"
+                )}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+              >
+                {imagePreview ? (
+                  <div className="relative inline-block">
+                    <img
+                      alt="Preview"
+                      className="mx-auto max-h-64 rounded-lg shadow-lg"
+                      src={imagePreview}
+                    />
+                    <Button
+                      className="-top-2 -right-2 absolute h-8 w-8 shadow-lg"
+                      onClick={clearImage}
+                      size="icon"
+                      variant="destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="py-8">
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
                     </div>
-                  ) : (
-                    <div className="py-8">
-                      <ImageIcon className="mx-auto mb-2 h-12 w-12 text-muted-foreground" />
-                      <p className="mb-2 text-muted-foreground text-sm">
-                        Перетащите изображение сюда или
-                      </p>
-                      <Button
-                        onClick={() => fileInputRef.current?.click()}
-                        variant="outline"
-                      >
-                        <Upload className="mr-2 h-4 w-4" />
-                        Выбрать файл
-                      </Button>
-                    </div>
-                  )}
-                  <input
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageSelect}
-                    ref={fileInputRef}
-                    type="file"
-                  />
-                </div>
-              </div>
-
-              {/* Prompt */}
-              <div className="space-y-2">
-                <Label htmlFor="prompt">Описание движения</Label>
-                <Textarea
-                  className="min-h-[80px]"
-                  id="prompt"
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                      handleGenerate();
-                    }
-                  }}
-                  placeholder="Опишите, как должно двигаться изображение..."
-                  value={prompt}
+                    <p className="mb-3 text-muted-foreground">
+                      Перетащите изображение сюда или
+                    </p>
+                    <Button
+                      onClick={() => fileInputRef.current?.click()}
+                      variant="outline"
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Выбрать файл
+                    </Button>
+                  </div>
+                )}
+                <input
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageSelect}
+                  ref={fileInputRef}
+                  type="file"
                 />
               </div>
+            </div>
 
-              <Button
-                className="w-full"
-                disabled={isGenerating || !selectedImage || !prompt.trim()}
-                onClick={handleGenerate}
-              >
-                {isGenerating ? (
+            {/* Prompt */}
+            <div className="space-y-2">
+              <Label className="font-medium text-sm" htmlFor="prompt">
+                Описание движения
+              </Label>
+              <Textarea
+                className="min-h-[80px] resize-none"
+                id="prompt"
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    handleGenerate();
+                  }
+                }}
+                placeholder="Опишите, как должно двигаться изображение..."
+                value={prompt}
+              />
+            </div>
+
+            <Button
+              className="w-full"
+              disabled={isGenerating || !selectedImage || !prompt.trim()}
+              onClick={handleGenerate}
+              variant="neon"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Генерация видео...
+                </>
+              ) : (
+                <>
+                  <Video className="mr-2 h-4 w-4" />
+                  Создать видео
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </CardGlass>
+
+        {/* Current task status */}
+        {currentTask && (
+          <Card className="mb-6 overflow-hidden">
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center gap-4 py-4">
+                {currentTask.status === "processing" ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Генерация видео...
+                    <div className="relative h-16 w-16">
+                      <div className="absolute inset-0 animate-glow-pulse rounded-full border-2 border-primary/50" />
+                      <Loader2 className="h-16 w-16 animate-spin p-3 text-primary" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium">Генерация видео...</p>
+                      <p className="text-muted-foreground text-sm">
+                        Это может занять несколько минут
+                      </p>
+                    </div>
+                  </>
+                ) : currentTask.status === "failed" ? (
+                  <>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+                      <X className="h-8 w-8 text-destructive" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-medium text-destructive">
+                        Ошибка генерации
+                      </p>
+                      {currentTask.error && (
+                        <p className="text-destructive/80 text-sm">
+                          {currentTask.error}
+                        </p>
+                      )}
+                    </div>
                   </>
                 ) : (
                   <>
-                    <Video className="mr-2 h-4 w-4" />
-                    Создать видео
+                    <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="font-medium">В очереди...</p>
                   </>
                 )}
-              </Button>
+
+                {currentTask.progress != null && (
+                  <div className="w-full max-w-xs">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-primary to-accent shadow-[0_0_10px_rgba(255,45,117,0.5)] transition-all duration-500"
+                        style={{ width: `${currentTask.progress}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-center text-muted-foreground text-xs">
+                      {currentTask.progress}%
+                    </p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
+        )}
 
-          {/* Current task status */}
-          {currentTask && (
-            <Card>
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <div className="mb-2 flex items-center gap-2">
-                      {currentTask.status === "processing" ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="font-medium">
-                            Генерация видео...
-                          </span>
-                        </>
-                      ) : currentTask.status === "failed" ? (
-                        <>
-                          <X className="h-4 w-4 text-destructive" />
-                          <span className="font-medium text-destructive">
-                            Ошибка генерации
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                          <span className="font-medium">В очереди...</span>
-                        </>
-                      )}
+        {/* Gallery */}
+        {gallery.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="font-semibold text-lg">
+              Созданные видео{" "}
+              <span className="font-normal text-muted-foreground">
+                ({gallery.length})
+              </span>
+            </h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {gallery.map((video, index) => (
+                <Card
+                  className="group overflow-hidden transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.2)]"
+                  key={index}
+                >
+                  <div className="relative">
+                    <video
+                      className="aspect-video w-full object-cover"
+                      controls
+                      loop
+                      src={`data:video/mp4;base64,${video.video_base64}`}
+                    />
+                    <div className="absolute top-3 right-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                      <Button
+                        className="shadow-lg"
+                        onClick={() => handleDownload(video)}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        <Download className="mr-1 h-4 w-4" />
+                        Скачать
+                      </Button>
                     </div>
-                    {currentTask.error && (
-                      <p className="text-destructive text-sm">
-                        {currentTask.error}
-                      </p>
-                    )}
-                    {currentTask.progress != null && (
-                      <div className="h-2 w-full rounded-full bg-secondary">
-                        <div
-                          className="h-2 rounded-full bg-primary transition-all"
-                          style={{ width: `${currentTask.progress}%` }}
-                        />
-                      </div>
-                    )}
                   </div>
-                </div>
-                <p className="mt-3 text-muted-foreground text-xs">
-                  Генерация видео занимает несколько минут. Не закрывайте
-                  страницу.
+                  <CardContent className="p-4">
+                    <div className="mb-3 flex gap-3">
+                      <img
+                        alt="Source"
+                        className="h-12 w-12 rounded-lg object-cover shadow-sm"
+                        src={video.imagePreview}
+                      />
+                      <p className="line-clamp-2 flex-1 text-muted-foreground text-sm">
+                        {video.prompt}
+                      </p>
+                    </div>
+                    <Badge className="text-xs" variant="purple">
+                      <Play className="mr-1 h-3 w-3" />
+                      wan2.2-Remix
+                    </Badge>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!(isGenerating || currentTask) && gallery.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 rounded-full bg-secondary p-4">
+              <Video className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="mb-2 font-medium">Нет видео</h3>
+            <p className="max-w-sm text-muted-foreground text-sm">
+              Загрузите изображение и опишите движение, чтобы создать своё
+              первое видео
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Settings sidebar */}
+      <aside className="hidden w-[320px] border-border/50 border-l bg-card/50 backdrop-blur-sm lg:block">
+        <div className="sticky top-0 h-full overflow-auto p-6">
+          <div className="space-y-6">
+            {/* Parameters */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium text-sm">Steps</Label>
+                <span className="font-mono text-primary text-sm">{steps}</span>
+              </div>
+              <Slider
+                max={100}
+                min={10}
+                onValueChange={([v]) => setSteps(v)}
+                step={5}
+                value={[steps]}
+              />
+              <p className="text-muted-foreground text-xs">
+                Больше = выше качество, дольше генерация
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium text-sm">Guidance Scale</Label>
+                <span className="font-mono text-primary text-sm">
+                  {guidanceScale.toFixed(1)}
+                </span>
+              </div>
+              <Slider
+                max={20}
+                min={1}
+                onValueChange={([v]) => setGuidanceScale(v)}
+                step={0.5}
+                value={[guidanceScale]}
+              />
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium text-sm">Кадров</Label>
+                <span className="font-mono text-primary text-sm">
+                  {numFrames}
+                </span>
+              </div>
+              <Slider
+                max={81}
+                min={16}
+                onValueChange={([v]) => setNumFrames(v)}
+                step={1}
+                value={[numFrames]}
+              />
+              <p className="text-muted-foreground text-xs">
+                При 8 FPS: ~{(numFrames / 8).toFixed(1)} сек видео
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="font-medium text-sm">
+                Seed{" "}
+                <span className="font-normal text-muted-foreground">
+                  (опционально)
+                </span>
+              </Label>
+              <Input
+                onChange={(e) =>
+                  setSeed(e.target.value ? Number(e.target.value) : undefined)
+                }
+                placeholder="Случайный"
+                type="number"
+                value={seed ?? ""}
+              />
+            </div>
+
+            {/* Tips card */}
+            <Card className="border-accent/20 bg-accent/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 font-medium text-sm">
+                  <Lightbulb className="h-4 w-4 text-accent" />
+                  Советы
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-muted-foreground text-xs">
+                <p>• Используйте чёткие изображения без шума</p>
+                <p>
+                  • Описывайте плавные движения: &quot;камера
+                  приближается&quot;, &quot;волосы развеваются&quot;
                 </p>
+                <p>• Избегайте резких изменений сцены</p>
+                <p>• Оптимальный размер: 720x480 или 480x720</p>
               </CardContent>
             </Card>
-          )}
-
-          {/* Gallery */}
-          {gallery.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="font-semibold text-lg">Созданные видео</h2>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {gallery.map((video, index) => (
-                  <Card className="overflow-hidden" key={index}>
-                    <div className="group relative">
-                      <video
-                        className="aspect-video w-full object-cover"
-                        controls
-                        loop
-                        src={`data:video/mp4;base64,${video.video_base64}`}
-                      />
-                      <div className="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100">
-                        <Button
-                          onClick={() => handleDownload(video)}
-                          size="sm"
-                          variant="secondary"
-                        >
-                          <Download className="mr-1 h-4 w-4" />
-                          Скачать
-                        </Button>
-                      </div>
-                    </div>
-                    <CardContent className="p-3">
-                      <div className="mb-2 flex gap-3">
-                        <img
-                          alt="Source"
-                          className="h-12 w-12 rounded object-cover"
-                          src={video.imagePreview}
-                        />
-                        <p className="line-clamp-2 flex-1 text-muted-foreground text-sm">
-                          {video.prompt}
-                        </p>
-                      </div>
-                      <Badge className="text-xs" variant="secondary">
-                        <Play className="mr-1 h-3 w-3" />
-                        wan2.2-Remix
-                      </Badge>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
-
-        {/* Settings sidebar */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="font-medium text-sm">Параметры</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm">Steps: {steps}</Label>
-                <Slider
-                  max={100}
-                  min={10}
-                  onValueChange={([v]) => setSteps(v)}
-                  step={5}
-                  value={[steps]}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Больше = выше качество, дольше генерация
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">
-                  Guidance Scale: {guidanceScale.toFixed(1)}
-                </Label>
-                <Slider
-                  max={20}
-                  min={1}
-                  onValueChange={([v]) => setGuidanceScale(v)}
-                  step={0.5}
-                  value={[guidanceScale]}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">Кадров: {numFrames}</Label>
-                <Slider
-                  max={81}
-                  min={16}
-                  onValueChange={([v]) => setNumFrames(v)}
-                  step={1}
-                  value={[numFrames]}
-                />
-                <p className="text-muted-foreground text-xs">
-                  При 8 FPS: {(numFrames / 8).toFixed(1)} сек видео
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">Seed (опционально)</Label>
-                <Input
-                  onChange={(e) =>
-                    setSeed(e.target.value ? Number(e.target.value) : undefined)
-                  }
-                  placeholder="Случайный"
-                  type="number"
-                  value={seed ?? ""}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="font-medium text-sm">Советы</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-muted-foreground text-sm">
-              <p>• Используйте чёткие изображения без шума</p>
-              <p>
-                • Описывайте плавные движения: "камера приближается", "волосы
-                развеваются"
-              </p>
-              <p>• Избегайте резких изменений сцены</p>
-              <p>• Оптимальный размер: 720x480 или 480x720</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      </aside>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useForm } from "@tanstack/react-form";
+import { Loader2, LogIn } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import z from "zod";
@@ -30,7 +31,7 @@ export default function SignInForm({
         {
           onSuccess: () => {
             router.push("/dashboard");
-            toast.success("Sign in successful");
+            toast.success("Вход выполнен успешно");
           },
           onError: (error) => {
             toast.error(error.error.message || error.error.statusText);
@@ -40,8 +41,8 @@ export default function SignInForm({
     },
     validators: {
       onSubmit: z.object({
-        email: z.email("Invalid email address"),
-        password: z.string().min(8, "Password must be at least 8 characters"),
+        email: z.email("Некорректный email адрес"),
+        password: z.string().min(8, "Пароль должен быть минимум 8 символов"),
       }),
     },
   });
@@ -51,8 +52,13 @@ export default function SignInForm({
   }
 
   return (
-    <div className="mx-auto mt-10 w-full max-w-md p-6">
-      <h1 className="mb-6 text-center font-bold text-3xl">Welcome Back</h1>
+    <div className="px-6">
+      <h1 className="mb-2 text-center font-bold text-2xl">
+        <span className="gradient-neon-text">Добро пожаловать</span>
+      </h1>
+      <p className="mb-6 text-center text-muted-foreground text-sm">
+        Войдите в свой аккаунт
+      </p>
 
       <form
         className="space-y-4"
@@ -62,51 +68,49 @@ export default function SignInForm({
           form.handleSubmit();
         }}
       >
-        <div>
-          <form.Field name="email">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Email</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  type="email"
-                  value={field.state.value}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p className="text-red-500" key={error?.message}>
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-        </div>
+        <form.Field name="email">
+          {(field) => (
+            <div className="space-y-2">
+              <Label htmlFor={field.name}>Email</Label>
+              <Input
+                id={field.name}
+                name={field.name}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="your@email.com"
+                type="email"
+                value={field.state.value}
+              />
+              {field.state.meta.errors.map((error) => (
+                <p className="text-destructive text-sm" key={error?.message}>
+                  {error?.message}
+                </p>
+              ))}
+            </div>
+          )}
+        </form.Field>
 
-        <div>
-          <form.Field name="password">
-            {(field) => (
-              <div className="space-y-2">
-                <Label htmlFor={field.name}>Password</Label>
-                <Input
-                  id={field.name}
-                  name={field.name}
-                  onBlur={field.handleBlur}
-                  onChange={(e) => field.handleChange(e.target.value)}
-                  type="password"
-                  value={field.state.value}
-                />
-                {field.state.meta.errors.map((error) => (
-                  <p className="text-red-500" key={error?.message}>
-                    {error?.message}
-                  </p>
-                ))}
-              </div>
-            )}
-          </form.Field>
-        </div>
+        <form.Field name="password">
+          {(field) => (
+            <div className="space-y-2">
+              <Label htmlFor={field.name}>Пароль</Label>
+              <Input
+                id={field.name}
+                name={field.name}
+                onBlur={field.handleBlur}
+                onChange={(e) => field.handleChange(e.target.value)}
+                placeholder="••••••••"
+                type="password"
+                value={field.state.value}
+              />
+              {field.state.meta.errors.map((error) => (
+                <p className="text-destructive text-sm" key={error?.message}>
+                  {error?.message}
+                </p>
+              ))}
+            </div>
+          )}
+        </form.Field>
 
         <form.Subscribe>
           {(state) => (
@@ -114,20 +118,32 @@ export default function SignInForm({
               className="w-full"
               disabled={!state.canSubmit || state.isSubmitting}
               type="submit"
+              variant="neon"
             >
-              {state.isSubmitting ? "Submitting..." : "Sign In"}
+              {state.isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Вход...
+                </>
+              ) : (
+                <>
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Войти
+                </>
+              )}
             </Button>
           )}
         </form.Subscribe>
       </form>
 
-      <div className="mt-4 text-center">
+      <div className="mt-6 text-center">
+        <span className="text-muted-foreground text-sm">Нет аккаунта? </span>
         <Button
-          className="text-indigo-600 hover:text-indigo-800"
+          className="text-primary hover:text-primary/80"
           onClick={onSwitchToSignUp}
           variant="link"
         >
-          Need an account? Sign Up
+          Зарегистрироваться
         </Button>
       </div>
     </div>

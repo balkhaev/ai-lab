@@ -6,7 +6,8 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm",
+        "group relative flex flex-col gap-6 rounded-xl border border-border/50 bg-card/80 py-6 text-card-foreground backdrop-blur-sm transition-all duration-300",
+        "hover:border-primary/30 hover:shadow-[0_0_30px_rgba(255,45,117,0.1)]",
         className
       )}
       data-slot="card"
@@ -31,7 +32,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("font-semibold leading-none", className)}
+      className={cn("font-semibold leading-none tracking-tight", className)}
       data-slot="card-title"
       {...props}
     />
@@ -81,8 +82,27 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+/* Glass variant card for special sections */
+function CardGlass({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "group relative flex flex-col gap-6 rounded-xl py-6 text-card-foreground",
+        "border border-primary/20 bg-card/40 backdrop-blur-xl",
+        "shadow-[0_0_30px_rgba(255,45,117,0.1),inset_0_0_60px_rgba(168,85,247,0.05)]",
+        "hover:border-primary/40 hover:shadow-[0_0_40px_rgba(255,45,117,0.2),inset_0_0_80px_rgba(168,85,247,0.08)]",
+        "transition-all duration-500",
+        className
+      )}
+      data-slot="card"
+      {...props}
+    />
+  );
+}
+
 export {
   Card,
+  CardGlass,
   CardHeader,
   CardFooter,
   CardTitle,

@@ -19,15 +19,15 @@ services:
       retries: 5
 
   # API Gateway (Hono)
-  server:
+  gateway:
     build:
       context: .
-      dockerfile: apps/server/Dockerfile
+      dockerfile: apps/gateway/Dockerfile
     environment:
       PORT: 3000
       CORS_ORIGIN: http://localhost:3001
       DATABASE_URL: postgresql://ailab:ailab_password@postgres:5432/ailab
-      AI_URL: http://ai-api:8000
+      AI_API_URL: http://ai-api:8000
     ports:
       - "3000:3000"
     depends_on:
@@ -40,11 +40,11 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_SERVER_URL: http://localhost:3000
+        NEXT_PUBLIC_GATEWAY_URL: http://localhost:3000
     ports:
       - "3001:3001"
     depends_on:
-      - server
+      - gateway
 
   # Unified AI API (LLM + Image + Video generation)
   ai-api:

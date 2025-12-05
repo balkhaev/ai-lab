@@ -22,8 +22,8 @@ COPY packages/ ./packages/
 COPY apps/web/ ./apps/web/
 
 # Build arguments for environment variables
-ARG NEXT_PUBLIC_SERVER_URL
-ENV NEXT_PUBLIC_SERVER_URL=$NEXT_PUBLIC_SERVER_URL
+ARG NEXT_PUBLIC_GATEWAY_URL
+ENV NEXT_PUBLIC_GATEWAY_URL=$NEXT_PUBLIC_GATEWAY_URL
 
 WORKDIR /app/apps/web
 RUN npm run build

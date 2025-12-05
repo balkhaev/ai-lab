@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3000";
+const API_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:3000";
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";

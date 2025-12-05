@@ -2,24 +2,28 @@
 
 import { useMutation } from "@tanstack/react-query";
 import {
+  Check,
   Clock,
   Copy,
   Download,
+  ImageIcon,
   Loader2,
   Settings2,
   Sparkles,
   Wand2,
+  X,
 } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardGlass } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { generateImage, type ImageGenerationParams } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 type GeneratedImage = {
   image_base64: string;
@@ -46,6 +50,10 @@ export default function ImagePage() {
   const [seed, setSeed] = useState<number | undefined>(undefined);
   const [gallery, setGallery] = useState<GeneratedImage[]>([]);
   const [showSettings, setShowSettings] = useState(false);
+  const [copiedSeed, setCopiedSeed] = useState<number | null>(null);
+  const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(
+    null
+  );
 
   const mutation = useMutation({
     mutationFn: async (params: ImageGenerationParams) => {
@@ -89,6 +97,8 @@ export default function ImagePage() {
 
   const handleCopySeed = (seedValue: number) => {
     navigator.clipboard.writeText(seedValue.toString());
+    setCopiedSeed(seedValue);
+    setTimeout(() => setCopiedSeed(null), 2000);
   };
 
   const selectPresetSize = (preset: (typeof PRESET_SIZES)[0]) => {
@@ -102,157 +112,227 @@ export default function ImagePage() {
   };
 
   return (
-    <div className="container mx-auto max-w-7xl space-y-6 p-4">
-      <div className="space-y-2">
-        <h1 className="font-bold text-3xl tracking-tight">
-          Генерация изображений
-        </h1>
-        <p className="text-muted-foreground">
-          Создавайте изображения с помощью Z-Image-Turbo
-        </p>
-      </div>
+    <div className="flex h-full flex-col lg:flex-row">
+      {/* Main content area */}
+      <div className="flex-1 overflow-auto p-6">
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="mb-2 font-bold text-2xl tracking-tight">
+            <span className="gradient-neon-text">Генерация</span> изображений
+          </h1>
+          <p className="text-muted-foreground">
+            Создавайте уникальные изображения с помощью Z-Image-Turbo
+          </p>
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_350px]">
-        {/* Main content */}
-        <div className="space-y-4">
-          <Card>
-            <CardContent className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label htmlFor="prompt">Промпт</Label>
-                <Textarea
-                  className="min-h-[100px]"
-                  id="prompt"
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                      handleGenerate();
-                    }
-                  }}
-                  placeholder="Опишите изображение, которое хотите создать..."
-                  value={prompt}
-                />
-              </div>
+        {/* Prompt input card */}
+        <CardGlass className="mb-6">
+          <CardContent className="space-y-4 pt-6">
+            <div className="space-y-2">
+              <Label className="font-medium text-sm" htmlFor="prompt">
+                Промпт
+              </Label>
+              <Textarea
+                className="min-h-[120px] resize-none"
+                id="prompt"
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    handleGenerate();
+                  }
+                }}
+                placeholder="Опишите изображение, которое хотите создать..."
+                value={prompt}
+              />
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="negative">
-                  Негативный промпт (опционально)
-                </Label>
-                <Textarea
-                  className="min-h-[60px]"
-                  id="negative"
-                  onChange={(e) => setNegativePrompt(e.target.value)}
-                  placeholder="Чего не должно быть на изображении..."
-                  value={negativePrompt}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className="font-medium text-sm" htmlFor="negative">
+                Негативный промпт{" "}
+                <span className="font-normal text-muted-foreground">
+                  (опционально)
+                </span>
+              </Label>
+              <Textarea
+                className="min-h-[60px] resize-none"
+                id="negative"
+                onChange={(e) => setNegativePrompt(e.target.value)}
+                placeholder="Чего не должно быть на изображении..."
+                value={negativePrompt}
+              />
+            </div>
 
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1"
-                  disabled={mutation.isPending || !prompt.trim()}
-                  onClick={handleGenerate}
-                >
-                  {mutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Генерация...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Сгенерировать
-                    </>
-                  )}
-                </Button>
-                <Button
-                  onClick={() => setShowSettings(!showSettings)}
-                  size="icon"
-                  variant="outline"
-                >
-                  <Settings2 className="h-4 w-4" />
-                </Button>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1"
+                disabled={mutation.isPending || !prompt.trim()}
+                onClick={handleGenerate}
+                variant="neon"
+              >
+                {mutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Генерация...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Сгенерировать
+                  </>
+                )}
+              </Button>
+              <Button
+                className="lg:hidden"
+                onClick={() => setShowSettings(!showSettings)}
+                size="icon"
+                variant="outline"
+              >
+                <Settings2 className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <p className="text-muted-foreground text-xs">
+              Нажмите{" "}
+              <kbd className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs">
+                Ctrl
+              </kbd>{" "}
+              +{" "}
+              <kbd className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs">
+                Enter
+              </kbd>{" "}
+              для генерации
+            </p>
+          </CardContent>
+        </CardGlass>
+
+        {/* Current generation */}
+        {mutation.isPending && (
+          <Card className="mb-6 overflow-hidden">
+            <CardContent className="p-0">
+              <div className="relative aspect-square max-h-[400px] w-full">
+                <Skeleton className="h-full w-full" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm">
+                  <div className="mb-4 h-16 w-16 animate-glow-pulse rounded-full border-2 border-primary/50">
+                    <Sparkles className="h-full w-full p-4 text-primary" />
+                  </div>
+                  <p className="text-muted-foreground text-sm">
+                    Создаём изображение...
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
+        )}
 
-          {/* Current generation */}
-          {mutation.isPending && (
-            <Card>
-              <CardContent className="pt-4">
-                <div className="mx-auto aspect-square max-w-md">
-                  <Skeleton className="h-full w-full rounded-lg" />
-                </div>
-                <p className="mt-4 text-center text-muted-foreground text-sm">
-                  <Sparkles className="mr-1 inline h-4 w-4" />
-                  Создаём изображение...
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Gallery */}
-          {gallery.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="font-semibold text-lg">Галерея</h2>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {gallery.map((image, index) => (
-                  <Card
-                    className="overflow-hidden"
-                    key={`${image.seed}-${index}`}
-                  >
-                    <div className="group relative">
-                      <img
-                        alt={image.prompt}
-                        className="aspect-square w-full object-cover"
-                        src={`data:image/png;base64,${image.image_base64}`}
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
-                        <Button
-                          onClick={() => handleDownload(image)}
-                          size="sm"
-                          variant="secondary"
-                        >
-                          <Download className="mr-1 h-4 w-4" />
-                          Скачать
-                        </Button>
-                        <Button
-                          onClick={() => handleCopySeed(image.seed)}
-                          size="sm"
-                          variant="secondary"
-                        >
+        {/* Gallery */}
+        {gallery.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="font-semibold text-lg">
+              Галерея{" "}
+              <span className="font-normal text-muted-foreground">
+                ({gallery.length})
+              </span>
+            </h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {gallery.map((image, index) => (
+                <Card
+                  className="group cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,45,117,0.2)]"
+                  key={`${image.seed}-${index}`}
+                  onClick={() => setSelectedImage(image)}
+                >
+                  <div className="relative aspect-square">
+                    <img
+                      alt={image.prompt}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      src={`data:image/png;base64,${image.image_base64}`}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/70 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(image);
+                        }}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        <Download className="mr-1 h-4 w-4" />
+                        Скачать
+                      </Button>
+                      <Button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCopySeed(image.seed);
+                        }}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        {copiedSeed === image.seed ? (
+                          <Check className="mr-1 h-4 w-4 text-green-500" />
+                        ) : (
                           <Copy className="mr-1 h-4 w-4" />
-                          Seed
-                        </Button>
-                      </div>
+                        )}
+                        Seed
+                      </Button>
                     </div>
-                    <CardContent className="p-3">
-                      <p className="mb-2 line-clamp-2 text-muted-foreground text-sm">
-                        {image.prompt}
-                      </p>
-                      <div className="flex gap-2">
-                        <Badge className="text-xs" variant="secondary">
-                          <Clock className="mr-1 h-3 w-3" />
-                          {formatTime(image.generation_time)}
-                        </Badge>
-                        <Badge className="text-xs" variant="outline">
-                          Seed: {image.seed}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                  </div>
+                  <CardContent className="p-3">
+                    <p className="mb-2 line-clamp-2 text-muted-foreground text-sm">
+                      {image.prompt}
+                    </p>
+                    <div className="flex gap-2">
+                      <Badge className="text-xs" variant="neon">
+                        <Clock className="mr-1 h-3 w-3" />
+                        {formatTime(image.generation_time)}
+                      </Badge>
+                      <Badge className="text-xs" variant="outline">
+                        Seed: {image.seed}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Settings sidebar */}
-        <div className={`space-y-4 ${showSettings ? "" : "hidden lg:block"}`}>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="font-medium text-sm">Размер</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        {/* Empty state */}
+        {!mutation.isPending && gallery.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="mb-4 rounded-full bg-secondary p-4">
+              <ImageIcon className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="mb-2 font-medium">Нет изображений</h3>
+            <p className="max-w-sm text-muted-foreground text-sm">
+              Введите промпт и нажмите кнопку генерации, чтобы создать своё
+              первое изображение
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Settings sidebar */}
+      <aside
+        className={cn(
+          "w-full border-border/50 border-l bg-card/50 backdrop-blur-sm lg:w-[320px]",
+          showSettings ? "block" : "hidden lg:block"
+        )}
+      >
+        <div className="sticky top-0 h-full overflow-auto p-6">
+          <div className="mb-6 flex items-center justify-between lg:hidden">
+            <h3 className="font-semibold">Настройки</h3>
+            <Button
+              onClick={() => setShowSettings(false)}
+              size="icon"
+              variant="ghost"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="space-y-6">
+            {/* Size presets */}
+            <div className="space-y-3">
+              <Label className="font-medium text-sm">Размер</Label>
               <div className="flex flex-wrap gap-2">
                 {PRESET_SIZES.map((preset) => (
                   <Button
@@ -271,7 +351,9 @@ export default function ImagePage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-xs">Ширина</Label>
+                  <Label className="text-muted-foreground text-xs">
+                    Ширина
+                  </Label>
                   <Input
                     max={2048}
                     min={256}
@@ -282,7 +364,9 @@ export default function ImagePage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Высота</Label>
+                  <Label className="text-muted-foreground text-xs">
+                    Высота
+                  </Label>
                   <Input
                     max={2048}
                     min={256}
@@ -293,62 +377,125 @@ export default function ImagePage() {
                   />
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="font-medium text-sm">Параметры</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-sm">Steps: {steps}</Label>
-                <Slider
-                  max={50}
-                  min={1}
-                  onValueChange={([v]) => setSteps(v)}
-                  step={1}
-                  value={[steps]}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Больше шагов = выше качество, дольше генерация
-                </p>
+            {/* Steps slider */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium text-sm">Steps</Label>
+                <span className="font-mono text-primary text-sm">{steps}</span>
               </div>
+              <Slider
+                max={50}
+                min={1}
+                onValueChange={([v]) => setSteps(v)}
+                step={1}
+                value={[steps]}
+              />
+              <p className="text-muted-foreground text-xs">
+                Больше шагов = выше качество, дольше генерация
+              </p>
+            </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm">
-                  Guidance Scale: {guidanceScale.toFixed(1)}
-                </Label>
-                <Slider
-                  max={20}
-                  min={1}
-                  onValueChange={([v]) => setGuidanceScale(v)}
-                  step={0.5}
-                  value={[guidanceScale]}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Выше = точнее следует промпту
-                </p>
+            {/* Guidance scale slider */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="font-medium text-sm">Guidance Scale</Label>
+                <span className="font-mono text-primary text-sm">
+                  {guidanceScale.toFixed(1)}
+                </span>
               </div>
+              <Slider
+                max={20}
+                min={1}
+                onValueChange={([v]) => setGuidanceScale(v)}
+                step={0.5}
+                value={[guidanceScale]}
+              />
+              <p className="text-muted-foreground text-xs">
+                Выше = точнее следует промпту
+              </p>
+            </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm">Seed (опционально)</Label>
-                <Input
-                  onChange={(e) =>
-                    setSeed(e.target.value ? Number(e.target.value) : undefined)
-                  }
-                  placeholder="Случайный"
-                  type="number"
-                  value={seed ?? ""}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Для воспроизводимых результатов
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            {/* Seed input */}
+            <div className="space-y-3">
+              <Label className="font-medium text-sm">
+                Seed{" "}
+                <span className="font-normal text-muted-foreground">
+                  (опционально)
+                </span>
+              </Label>
+              <Input
+                onChange={(e) =>
+                  setSeed(e.target.value ? Number(e.target.value) : undefined)
+                }
+                placeholder="Случайный"
+                type="number"
+                value={seed ?? ""}
+              />
+              <p className="text-muted-foreground text-xs">
+                Для воспроизводимых результатов
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      </aside>
+
+      {/* Image lightbox */}
+      {selectedImage && (
+        <button
+          className="fixed inset-0 z-50 flex cursor-default items-center justify-center bg-background/90 backdrop-blur-md"
+          onClick={() => setSelectedImage(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+              setSelectedImage(null);
+            }
+          }}
+          type="button"
+        >
+          <div className="relative max-h-[90vh] max-w-[90vw]">
+            <img
+              alt={selectedImage.prompt}
+              className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain shadow-2xl"
+              src={`data:image/png;base64,${selectedImage.image_base64}`}
+            />
+            <div className="-bottom-16 -translate-x-1/2 absolute left-1/2 flex gap-2">
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload(selectedImage);
+                }}
+                variant="secondary"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Скачать
+              </Button>
+              <Button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopySeed(selectedImage.seed);
+                }}
+                variant="outline"
+              >
+                {copiedSeed === selectedImage.seed ? (
+                  <Check className="mr-2 h-4 w-4 text-green-500" />
+                ) : (
+                  <Copy className="mr-2 h-4 w-4" />
+                )}
+                Seed: {selectedImage.seed}
+              </Button>
+            </div>
+            <Button
+              className="-top-4 -right-4 absolute"
+              onClick={() => setSelectedImage(null)}
+              size="icon"
+              variant="secondary"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </button>
+      )}
     </div>
   );
 }

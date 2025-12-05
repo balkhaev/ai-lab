@@ -2,7 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 
-const AI_URL = process.env.AI_URL || "http://localhost:8000";
+const AI_API_URL = process.env.AI_API_URL || "http://localhost:8000";
 
 const media = new Hono();
 
@@ -38,12 +38,12 @@ type HealthResponse = {
   models_loaded: string[];
 };
 
-// Health check for diffusers service
+// Health check for AI API service
 media.get("/health", async (c) => {
-  const response = await fetch(`${AI_URL}/health`);
+  const response = await fetch(`${AI_API_URL}/health`);
 
   if (!response.ok) {
-    return c.json({ error: "AI service unavailable" }, 503);
+    return c.json({ error: "AI API unavailable" }, 503);
   }
 
   const data = (await response.json()) as HealthResponse;
@@ -54,7 +54,7 @@ media.get("/health", async (c) => {
 media.post("/image", zValidator("json", imageSchema), async (c) => {
   const body = c.req.valid("json");
 
-  const response = await fetch(`${AI_URL}/generate/image`, {
+  const response = await fetch(`${AI_API_URL}/generate/image`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -73,8 +73,8 @@ media.post("/image", zValidator("json", imageSchema), async (c) => {
 media.post("/video", async (c) => {
   const formData = await c.req.formData();
 
-  // Forward form data to diffusers service
-  const response = await fetch(`${AI_URL}/generate/video`, {
+  // Forward form data to AI API
+  const response = await fetch(`${AI_API_URL}/generate/video`, {
     method: "POST",
     body: formData,
   });
@@ -92,7 +92,7 @@ media.post("/video", async (c) => {
 media.get("/video/status/:taskId", async (c) => {
   const taskId = c.req.param("taskId");
 
-  const response = await fetch(`${AI_URL}/generate/video/status/${taskId}`);
+  const response = await fetch(`${AI_API_URL}/generate/video/status/${taskId}`);
 
   if (!response.ok) {
     if (response.status === 404) {
