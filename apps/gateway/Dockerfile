@@ -1,4 +1,4 @@
-FROM oven/bun:1.1-alpine AS builder
+FROM oven/bun:1.2.21-alpine AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ WORKDIR /app/apps/gateway
 RUN bun run build
 
 # Production image
-FROM oven/bun:1.1-alpine
+FROM oven/bun:1.2.21-alpine
 
 WORKDIR /app
 

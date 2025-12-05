@@ -8,8 +8,8 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/db/package.json ./packages/db/
 COPY apps/web/package.json ./apps/web/
 
-# Install bun for dependency resolution
-RUN npm install -g bun
+# Install bun for dependency resolution (same version as local)
+RUN npm install -g bun@1.2.21
 RUN bun install --frozen-lockfile
 
 # Builder stage
