@@ -21,6 +21,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY packages/ ./packages/
 COPY apps/web/ ./apps/web/
 
+# Generate Prisma client (dummy URL for generation, real connection not needed)
+WORKDIR /app/packages/db
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npx prisma generate
+
 # Build arguments for environment variables
 ARG NEXT_PUBLIC_GATEWAY_URL
 ENV NEXT_PUBLIC_GATEWAY_URL=$NEXT_PUBLIC_GATEWAY_URL
