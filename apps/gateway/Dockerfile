@@ -17,6 +17,10 @@ RUN bun install --frozen-lockfile
 COPY packages/ ./packages/
 COPY apps/gateway/ ./apps/gateway/
 
+# Generate Prisma client
+WORKDIR /app/packages/db
+RUN bunx prisma generate
+
 # Build
 WORKDIR /app/apps/gateway
 RUN bun run build
