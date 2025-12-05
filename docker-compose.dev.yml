@@ -1,0 +1,26 @@
+version: "3.9"
+
+# Development compose file - runs only PostgreSQL
+# Use this for local development with hot reload
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ailab
+      POSTGRES_PASSWORD: ailab_password
+      POSTGRES_DB: ailab
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ailab"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+

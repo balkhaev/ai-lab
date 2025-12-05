@@ -1,0 +1,84 @@
+version: "3.9"
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ailab
+      POSTGRES_PASSWORD: ailab_password
+      POSTGRES_DB: ailab
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ailab"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API Gateway (Hono)
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    environment:
+      PORT: 3000
+      CORS_ORIGIN: http://localhost:3001
+      DATABASE_URL: postgresql://ailab:ailab_password@postgres:5432/ailab
+      AI_URL: http://ai-api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Web frontend (Next.js)
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_SERVER_URL: http://localhost:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      - server
+
+  # Unified AI API (LLM + Image + Video generation)
+  ai-api:
+    build:
+      context: apps/ai-api
+      dockerfile: Dockerfile
+    environment:
+      # LLM settings
+      MODEL_IDS: "NousResearch/Hermes-4-14B-FP8"
+      TENSOR_PARALLEL_SIZE: 1
+      GPU_MEMORY_UTILIZATION: 0.7
+      MAX_MODEL_LEN: 8192
+      # Image settings
+      IMAGE_MODEL: "Tongyi-MAI/Z-Image-Turbo"
+      ENABLE_IMAGE: "true"
+      # Video settings
+      VIDEO_MODEL: "FX-FeiHou/wan2.2-Remix"
+      ENABLE_VIDEO: "true"
+      # Cache
+      HF_HOME: /models
+    volumes:
+      - huggingface_cache:/models
+      - ai_outputs:/app/outputs
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  postgres_data:
+  huggingface_cache:
+  ai_outputs:
