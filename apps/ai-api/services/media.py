@@ -27,6 +27,7 @@ def load_image_model():
     pipe = FluxPipeline.from_pretrained(
         IMAGE_MODEL,
         torch_dtype=get_dtype(),
+        trust_remote_code=True,
     )
     pipe.to(get_device())
     if get_device() == "cuda":
