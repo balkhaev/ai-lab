@@ -19,7 +19,7 @@ def get_dtype() -> torch.dtype:
 # LLM configuration
 MODEL_IDS = os.environ.get(
     "MODEL_IDS",
-    "DavidAU/Llama3.2-24B-A3B-II-Dark-Champion-INSTRUCT-Heretic-Abliterated-Uncensored"
+    "Undi95/Meta-Llama-3.1-8B-Instruct-abliterated"
 ).split(",")
 TENSOR_PARALLEL_SIZE = int(os.environ.get("TENSOR_PARALLEL_SIZE", "1"))
 GPU_MEMORY_UTILIZATION = float(os.environ.get("GPU_MEMORY_UTILIZATION", "0.95"))

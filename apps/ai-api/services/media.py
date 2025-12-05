@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 
 def load_image_model():
     """Load image generation model"""
-    from diffusers import FluxPipeline
+    from diffusers import DiffusionPipeline
 
     logger.info(f"Loading image model: {IMAGE_MODEL}")
-    pipe = FluxPipeline.from_pretrained(
+    pipe = DiffusionPipeline.from_pretrained(
         IMAGE_MODEL,
         torch_dtype=get_dtype(),
         trust_remote_code=True,
