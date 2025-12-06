@@ -43,6 +43,19 @@ lerna-debug.log*
 coverage
 .nyc_output
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+.eggs/
+*.egg-info/
+.pytest_cache/
+
 # Misc
 *.tgz
 .cache

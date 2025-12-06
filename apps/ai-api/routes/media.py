@@ -9,7 +9,17 @@ import torch
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
 from PIL import Image
 
-from config import ENABLE_IMAGE, ENABLE_IMAGE2IMAGE, ENABLE_VIDEO, IMAGE_MODELS, IMAGE2IMAGE_MODELS, get_device
+from config import (
+    ENABLE_IMAGE,
+    ENABLE_IMAGE2IMAGE,
+    ENABLE_VIDEO,
+    IMAGE_MODEL,
+    IMAGE_MODELS,
+    IMAGE2IMAGE_MODEL,
+    IMAGE2IMAGE_MODELS,
+    get_device,
+)
+from models.management import ModelType
 from models.media import (
     ImageGenerationRequest,
     ImageGenerationResponse,
@@ -17,38 +27,59 @@ from models.media import (
     VideoTaskResponse,
 )
 from models.queue import TaskType, TaskResponse
-from services.media import load_image_model, load_image2image_model
+from presets import (
+    get_image_preset,
+    get_image2image_preset,
+    get_all_image_presets,
+    get_all_image2image_presets,
+)
+from services.orchestrator import orchestrator
 from services.queue import create_task, get_task
-from state import media_models
 
 router = APIRouter(prefix="/generate", tags=["Media Generation"])
 
 
 @router.get(
     "/image/models",
-    summary="Get available text2image models",
-    description="Returns list of available models for text-to-image generation",
+    summary="Get available text2image models with presets",
+    description="Returns list of available models with their optimal configurations",
 )
 async def get_image_models():
-    """Get list of available text2image models"""
-    current_model = media_models.get("image_model_id")
+    """Get list of available text2image models with presets"""
+    # Get current loaded image model from orchestrator
+    image_model = orchestrator.get_by_type(ModelType.IMAGE)
+    current_model = image_model.model_id if image_model else None
+    
+    # Get presets for all models
+    all_presets = get_all_image_presets()
+    presets = {model: all_presets.get(model, get_image_preset(model)) for model in IMAGE_MODELS}
+    
     return {
         "models": IMAGE_MODELS,
         "current_model": current_model,
+        "presets": presets,
     }
 
 
 @router.get(
     "/image2image/models",
-    summary="Get available image2image models",
-    description="Returns list of available models for image-to-image generation",
+    summary="Get available image2image models with presets",
+    description="Returns list of available models with their optimal configurations",
 )
 async def get_image2image_models():
-    """Get list of available image2image models"""
-    current_model = media_models.get("image2image_model_id")
+    """Get list of available image2image models with presets"""
+    # Get current loaded image2image model from orchestrator
+    image2image_model = orchestrator.get_by_type(ModelType.IMAGE2IMAGE)
+    current_model = image2image_model.model_id if image2image_model else None
+    
+    # Get presets for all models
+    all_presets = get_all_image2image_presets()
+    presets = {model: all_presets.get(model, get_image2image_preset(model)) for model in IMAGE2IMAGE_MODELS}
+    
     return {
         "models": IMAGE2IMAGE_MODELS,
         "current_model": current_model,
+        "presets": presets,
     }
 
 
@@ -101,14 +132,10 @@ async def generate_image(
     # Sync mode: generate immediately
     start_time = time.time()
 
-    # Check if we need to load a different model
-    current_model = media_models.get("image_model_id")
-    
-    # Lazy load model or switch if different model requested
-    if "image" not in media_models or (request.model and request.model != current_model):
-        media_models["image"] = load_image_model(request.model)
-
-    pipe = media_models["image"]
+    # Use orchestrator to ensure model is loaded
+    model_id = request.model or IMAGE_MODEL
+    loaded_model = await orchestrator.ensure_loaded(model_id, ModelType.IMAGE)
+    pipe = loaded_model.instance
 
     seed = request.seed if request.seed is not None else torch.randint(0, 2**32, (1,)).item()
     generator = torch.Generator(device=get_device()).manual_seed(seed)
@@ -202,14 +229,10 @@ async def generate_image2image(
     
     pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
 
-    # Check if we need to load a different model
-    current_model = media_models.get("image2image_model_id")
-    
-    # Lazy load model or switch if different model requested
-    if "image2image" not in media_models or (model and model != current_model):
-        media_models["image2image"] = load_image2image_model(model)
-
-    pipe = media_models["image2image"]
+    # Use orchestrator to ensure model is loaded
+    model_id = model or IMAGE2IMAGE_MODEL
+    loaded_model = await orchestrator.ensure_loaded(model_id, ModelType.IMAGE2IMAGE)
+    pipe = loaded_model.instance
 
     actual_seed = seed if seed is not None else torch.randint(0, 2**32, (1,)).item()
     generator = torch.Generator(device=get_device()).manual_seed(actual_seed)

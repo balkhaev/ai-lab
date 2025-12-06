@@ -20,8 +20,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html
 
 from config import MODEL_IDS, REDIS_URL
-from state import llm_engines, model_info, media_models, model_status
-from services.model_manager import load_llm_model
+from models.management import ModelType
+from services.orchestrator import orchestrator
 from services.queue import close_redis
 from services.worker import start_worker, stop_worker
 from routes import health_router, llm_router, media_router, models_router, queue_router
@@ -42,15 +42,14 @@ async def lifespan(app: FastAPI):
     logger.info("AI API starting up...")
     logger.info("=" * 60)
 
-    # Load LLM models
+    # Load LLM models using orchestrator
     llm_count = 0
     for model_id in MODEL_IDS:
         model_id = model_id.strip()
         if model_id:
             try:
-                success = await load_llm_model(model_id)
-                if success:
-                    llm_count += 1
+                await orchestrator.load(model_id, ModelType.LLM)
+                llm_count += 1
             except Exception as e:
                 logger.error(f"Failed to load model {model_id}: {e}")
 
@@ -65,7 +64,8 @@ async def lifespan(app: FastAPI):
     logger.info(f"  - Device: {'CUDA' if torch.cuda.is_available() else 'CPU'}")
     if torch.cuda.is_available():
         logger.info(f"  - GPU: {torch.cuda.get_device_name(0)}")
-        logger.info(f"  - GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+        gpu_status = orchestrator.get_gpu_status()
+        logger.info(f"  - GPU Memory: {gpu_status.total_mb / 1024:.1f} GB total, {gpu_status.free_mb / 1024:.1f} GB free")
     logger.info(f"  - Redis: {REDIS_URL}")
     logger.info("  - Swagger UI: http://0.0.0.0:8000/docs")
     logger.info("  - ReDoc: http://0.0.0.0:8000/redoc")
@@ -82,10 +82,13 @@ async def lifespan(app: FastAPI):
     # Close Redis
     await close_redis()
     
-    llm_engines.clear()
-    model_info.clear()
-    media_models.clear()
-    model_status.clear()
+    # Unload all models via orchestrator
+    for model in orchestrator.list_loaded():
+        try:
+            await orchestrator.unload(model.model_id)
+        except Exception as e:
+            logger.warning(f"Error unloading {model.model_id}: {e}")
+    
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     logger.info("Cleanup complete")
@@ -104,11 +107,18 @@ app = FastAPI(
 - **Image Generation** - Generate images from text prompts
 - **Video Generation** - Generate videos from images and prompts
 
+### Model Management
+
+The ModelOrchestrator automatically manages GPU memory:
+- Smart LRU-based unloading when memory is needed
+- Multiple models can coexist if memory permits
+- Automatic switching between model types
+
 ### Authentication
 
 Currently no authentication is required.
     """,
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url=None,  # Disable default ReDoc, using custom endpoint with stable CDN

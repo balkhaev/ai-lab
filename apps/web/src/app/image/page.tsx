@@ -75,8 +75,8 @@ export default function ImagePage() {
   // Text2Image state
   const [width, setWidth] = useState(1024);
   const [height, setHeight] = useState(1024);
-  const [steps, setSteps] = useState(4);
-  const [guidanceScale, setGuidanceScale] = useState(3.5);
+  const [steps, setSteps] = useState(9); // 9 for Z-Image-Turbo
+  const [guidanceScale, setGuidanceScale] = useState(0); // 0.0 for Z-Image-Turbo
   const [selectedT2IModel, setSelectedT2IModel] = useState<string | undefined>(
     undefined
   );
@@ -751,13 +751,13 @@ export default function ImagePage() {
                 </div>
                 <Slider
                   max={20}
-                  min={1}
+                  min={0}
                   onValueChange={([v]) => setGuidanceScale(v)}
                   step={0.5}
                   value={[guidanceScale]}
                 />
                 <p className="text-muted-foreground text-xs">
-                  Выше = точнее следует промпту
+                  0 для Z-Image-Turbo, выше для других моделей
                 </p>
               </div>
 

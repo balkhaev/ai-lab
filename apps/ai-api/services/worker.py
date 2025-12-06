@@ -10,8 +10,10 @@ from typing import Callable, Coroutine
 import torch
 from PIL import Image
 
-from config import get_device
+from config import get_device, VIDEO_MODEL, IMAGE_MODEL, IMAGE2IMAGE_MODEL
+from models.management import ModelType
 from models.queue import TaskStatus, TaskType
+from services.orchestrator import orchestrator
 from services.queue import (
     get_next_pending_task,
     get_task,
@@ -43,9 +45,6 @@ _worker_running = False
 
 async def process_image_task(task_id: str, params: dict) -> dict:
     """Process an image generation task"""
-    from services.media import load_image_model
-    from state import media_models
-    
     logger.info(f"Processing image task {task_id}")
     
     # Extract parameters
@@ -53,17 +52,14 @@ async def process_image_task(task_id: str, params: dict) -> dict:
     negative_prompt = params.get("negative_prompt", "")
     width = params.get("width", 1024)
     height = params.get("height", 1024)
-    num_inference_steps = params.get("num_inference_steps", 4)
-    guidance_scale = params.get("guidance_scale", 3.5)
+    num_inference_steps = params.get("num_inference_steps", 9)  # 9 for Z-Image-Turbo
+    guidance_scale = params.get("guidance_scale", 0.0)  # 0.0 for Z-Image-Turbo
     seed = params.get("seed")
-    model = params.get("model")
+    model = params.get("model") or IMAGE_MODEL
     
-    # Load model if needed
-    current_model = media_models.get("image_model_id")
-    if "image" not in media_models or (model and model != current_model):
-        media_models["image"] = load_image_model(model)
-    
-    pipe = media_models["image"]
+    # Load model using orchestrator
+    loaded_model = await orchestrator.ensure_loaded(model, ModelType.IMAGE)
+    pipe = loaded_model.instance
     
     # Generate
     actual_seed = seed if seed is not None else torch.randint(0, 2**32, (1,)).item()
@@ -94,9 +90,6 @@ async def process_image_task(task_id: str, params: dict) -> dict:
 
 async def process_image2image_task(task_id: str, params: dict) -> dict:
     """Process an image-to-image task"""
-    from services.media import load_image2image_model
-    from state import media_models
-    
     logger.info(f"Processing image2image task {task_id}")
     
     # Extract parameters
@@ -107,18 +100,15 @@ async def process_image2image_task(task_id: str, params: dict) -> dict:
     num_inference_steps = params.get("num_inference_steps", 30)
     guidance_scale = params.get("guidance_scale", 7.5)
     seed = params.get("seed")
-    model = params.get("model")
+    model = params.get("model") or IMAGE2IMAGE_MODEL
     
     # Decode input image
     image_data = base64.b64decode(image_base64)
     pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
     
-    # Load model if needed
-    current_model = media_models.get("image2image_model_id")
-    if "image2image" not in media_models or (model and model != current_model):
-        media_models["image2image"] = load_image2image_model(model)
-    
-    pipe = media_models["image2image"]
+    # Load model using orchestrator
+    loaded_model = await orchestrator.ensure_loaded(model, ModelType.IMAGE2IMAGE)
+    pipe = loaded_model.instance
     
     # Generate
     actual_seed = seed if seed is not None else torch.randint(0, 2**32, (1,)).item()
@@ -151,8 +141,7 @@ async def process_video_task(task_id: str, params: dict) -> dict:
     """Process a video generation task"""
     import imageio
     import numpy as np
-    from services.media import load_video_model
-    from services.model_manager import VideoModelFamily
+    from services.loaders.video import VideoModelFamily
     from services.media import (
         _generate_video_cogvideox,
         _generate_video_hunyuan,
@@ -160,7 +149,6 @@ async def process_video_task(task_id: str, params: dict) -> dict:
         _generate_video_ltx,
         _generate_video_wan_rapid,
     )
-    from state import media_models
     from config import OUTPUT_DIR
     
     logger.info(f"Processing video task {task_id}")
@@ -180,12 +168,10 @@ async def process_video_task(task_id: str, params: dict) -> dict:
     # Update progress
     await update_task(task_id, progress=10.0)
     
-    # Load model if needed
-    if "video" not in media_models:
-        media_models["video"] = load_video_model()
-    
-    pipe = media_models["video"]
-    model_family = media_models.get("video_model_family", VideoModelFamily.UNKNOWN.value)
+    # Load model using orchestrator
+    loaded_model = await orchestrator.ensure_loaded(VIDEO_MODEL, ModelType.VIDEO)
+    pipe = loaded_model.instance
+    model_family = loaded_model.metadata.get("video_family", VideoModelFamily.UNKNOWN.value)
     
     await update_task(task_id, progress=20.0)
     
@@ -266,7 +252,6 @@ async def process_llm_compare_task(task_id: str, params: dict) -> dict:
     """Process an LLM comparison task"""
     from vllm import SamplingParams
     from services.llm import format_chat_prompt
-    from state import llm_engines, model_info
     
     logger.info(f"Processing LLM compare task {task_id}")
     
@@ -291,12 +276,13 @@ async def process_llm_compare_task(task_id: str, params: dict) -> dict:
     total_models = len(models)
     
     for idx, model_name in enumerate(models):
+        # Find the loaded LLM model
         engine = None
-        
-        for mid, eng in llm_engines.items():
-            if model_name in mid or model_name == model_info.get(mid, {}).get("name"):
-                engine = eng
-                break
+        for loaded_model in orchestrator.list_loaded():
+            if loaded_model.model_type == ModelType.LLM:
+                if model_name in loaded_model.model_id or model_name == loaded_model.model_id.split("/")[-1]:
+                    engine = loaded_model.instance
+                    break
         
         if not engine:
             results[model_name] = {"error": "Model not found"}

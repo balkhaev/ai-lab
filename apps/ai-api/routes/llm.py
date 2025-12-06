@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from models.llm import ChatRequest, CompareRequest
+from models.management import ModelType
 from models.queue import TaskType, TaskResponse
 from services.llm import (
     format_chat_prompt,
@@ -16,10 +17,15 @@ from services.llm import (
     extract_images_from_messages,
     extract_images_from_message_dicts,
 )
+from services.orchestrator import orchestrator
 from services.queue import create_task
-from state import llm_engines, model_info
 
 router = APIRouter(prefix="/api", tags=["LLM"])
+
+
+def _get_model_short_name(model_id: str) -> str:
+    """Extract short name from model ID"""
+    return model_id.split("/")[-1]
 
 
 @router.get(
@@ -30,12 +36,13 @@ router = APIRouter(prefix="/api", tags=["LLM"])
 async def list_models():
     """List available LLM models"""
     models = []
-    for model_id, info in model_info.items():
-        models.append({
-            "name": info["name"],
-            "size": info["size"],
-            "modified_at": "",
-        })
+    for loaded_model in orchestrator.list_loaded():
+        if loaded_model.model_type == ModelType.LLM:
+            models.append({
+                "name": _get_model_short_name(loaded_model.model_id),
+                "size": 0,
+                "modified_at": loaded_model.loaded_at.isoformat() if loaded_model.loaded_at else "",
+            })
     return {"models": models}
 
 
@@ -52,11 +59,13 @@ async def chat(request: ChatRequest):
     engine = None
     model_id = None
 
-    for mid, eng in llm_engines.items():
-        if request.model in mid or request.model == model_info.get(mid, {}).get("name"):
-            engine = eng
-            model_id = mid
-            break
+    for loaded_model in orchestrator.list_loaded():
+        if loaded_model.model_type == ModelType.LLM:
+            short_name = _get_model_short_name(loaded_model.model_id)
+            if request.model in loaded_model.model_id or request.model == short_name:
+                engine = loaded_model.instance
+                model_id = loaded_model.model_id
+                break
 
     if not engine:
         raise HTTPException(status_code=404, detail=f"Model {request.model} not found")
@@ -163,10 +172,12 @@ async def compare_models(
         for model_name in request.models:
             engine = None
 
-            for mid, eng in llm_engines.items():
-                if model_name in mid or model_name == model_info.get(mid, {}).get("name"):
-                    engine = eng
-                    break
+            for loaded_model in orchestrator.list_loaded():
+                if loaded_model.model_type == ModelType.LLM:
+                    short_name = _get_model_short_name(loaded_model.model_id)
+                    if model_name in loaded_model.model_id or model_name == short_name:
+                        engine = loaded_model.instance
+                        break
 
             if not engine:
                 data = json.dumps({
