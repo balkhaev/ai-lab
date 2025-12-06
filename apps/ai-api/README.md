@@ -30,6 +30,10 @@ source .venv/bin/activate
 # Установка зависимостей
 pip install -r requirements.txt
 
+# ВАЖНО: Для поддержки Z-Image моделей (Tongyi-MAI/Z-Image-Turbo)
+# требуется последняя версия diffusers из git:
+pip install git+https://github.com/huggingface/diffusers.git -U
+
 # Конфигурация
 cp .env.example .env
 # Отредактируйте .env под ваши нужды
@@ -493,3 +497,23 @@ curl -X POST http://localhost:8000/generate/image \
 - **Diffusers** — библиотека для диффузионных моделей
 - **PyTorch** — ML фреймворк
 - **Transformers** — загрузка и работа с моделями HuggingFace
+
+## Известные проблемы и решения
+
+### Z-Image модели не загружаются (ZImagePipeline not found)
+
+**Симптом:** Ошибка `AttributeError: module diffusers has no attribute ZImagePipeline`
+
+**Причина:** Модели `Tongyi-MAI/Z-Image-Turbo` и `Z-Image-Edit` используют кастомный pipeline, который требует самую новую версию diffusers.
+
+**Решение:**
+
+```bash
+pip install git+https://github.com/huggingface/diffusers.git -U
+```
+
+**Альтернатива:** Использовать SDXL модель вместо Z-Image:
+
+```bash
+export IMAGE_MODEL="stabilityai/stable-diffusion-xl-base-1.0"
+```

@@ -8,7 +8,9 @@ pydantic>=2.0.0
 vllm>=0.6.0
 
 # Image/Video generation (Diffusers)
-diffusers>=0.33.0
+# ВАЖНО: Для Z-Image моделей (Tongyi-MAI/Z-Image-Turbo) нужна версия из git:
+# pip install git+https://github.com/huggingface/diffusers.git -U
+diffusers @ git+https://github.com/huggingface/diffusers.git
 transformers>=4.46.0
 accelerate>=1.2.0
 safetensors>=0.4.0

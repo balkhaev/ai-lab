@@ -53,12 +53,25 @@ def load_image_model(model_id: str | None = None):
     try:
         # Z-Image models need trust_remote_code for custom pipeline
         if any(z in target_model for z in ["Z-Image", "z-image"]):
-            pipe = DiffusionPipeline.from_pretrained(
-                target_model,
-                torch_dtype=get_dtype(),
-                trust_remote_code=True,
-                low_cpu_mem_usage=False,
-            )
+            try:
+                pipe = DiffusionPipeline.from_pretrained(
+                    target_model,
+                    torch_dtype=get_dtype(),
+                    trust_remote_code=True,
+                    low_cpu_mem_usage=False,
+                )
+            except AttributeError as e:
+                # ZImagePipeline not available - need newer diffusers
+                # pip install git+https://github.com/huggingface/diffusers.git -U
+                logger.error(
+                    f"Failed to load Z-Image model: {e}. "
+                    "Please update diffusers: pip install git+https://github.com/huggingface/diffusers.git -U"
+                )
+                raise RuntimeError(
+                    f"Z-Image model requires latest diffusers from git. "
+                    f"Run: pip install git+https://github.com/huggingface/diffusers.git -U\n"
+                    f"Original error: {e}"
+                ) from e
         else:
             # SDXL and other models use DiffusionPipeline
             pipe = DiffusionPipeline.from_pretrained(
