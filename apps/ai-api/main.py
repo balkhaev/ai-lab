@@ -34,6 +34,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger("ai-api")
 
+# Disable uvicorn access logs (only errors and 500s)
+logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
