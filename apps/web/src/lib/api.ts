@@ -149,7 +149,13 @@ export async function chatWithModel(
   }
 
   const data = (await response.json()) as { message: ChatMessage };
-  return data.message.content;
+  const { content } = data.message;
+  if (typeof content === "string") {
+    return content;
+  }
+  // Extract text from multimodal content
+  const textPart = content.find((part) => part.type === "text");
+  return textPart?.text ?? "";
 }
 
 export async function* streamChat(

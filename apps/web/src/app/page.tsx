@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 
 const features = [
   {
-    href: "/chat" as const,
+    href: "/chat",
     icon: MessageSquare,
     title: "AI Чат",
     description:
@@ -25,7 +25,7 @@ const features = [
     glowColor: "rgba(255, 45, 117, 0.3)",
   },
   {
-    href: "/image" as const,
+    href: "/image",
     icon: ImageIcon,
     title: "Генерация изображений",
     description:
@@ -34,7 +34,7 @@ const features = [
     glowColor: "rgba(168, 85, 247, 0.3)",
   },
   {
-    href: "/video" as const,
+    href: "/video",
     icon: Video,
     title: "Генерация видео",
     description:
@@ -42,7 +42,7 @@ const features = [
     gradient: "from-[oklch(0.75_0.15_195)] to-primary",
     glowColor: "rgba(6, 182, 212, 0.3)",
   },
-];
+] as const;
 
 const stats = [
   { label: "Моделей", value: "10+", icon: Sparkles },

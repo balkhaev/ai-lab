@@ -2,6 +2,19 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
 
+type ContentfulStatusCode =
+  | 200
+  | 201
+  | 400
+  | 401
+  | 403
+  | 404
+  | 409
+  | 422
+  | 500
+  | 502
+  | 503;
+
 const AI_API_URL = process.env.AI_API_URL || "http://localhost:8000";
 
 const models = new Hono();
@@ -81,7 +94,7 @@ models.post("/load", zValidator("json", loadModelSchema), async (c) => {
       .catch(() => ({ detail: "Unknown error" }))) as { detail: string };
     return c.json(
       { error: error.detail || "Failed to load model" },
-      response.status
+      response.status as ContentfulStatusCode
     );
   }
 
@@ -105,7 +118,7 @@ models.post("/unload", zValidator("json", unloadModelSchema), async (c) => {
       .catch(() => ({ detail: "Unknown error" }))) as { detail: string };
     return c.json(
       { error: error.detail || "Failed to unload model" },
-      response.status
+      response.status as ContentfulStatusCode
     );
   }
 
@@ -129,7 +142,7 @@ models.post("/switch", zValidator("json", loadModelSchema), async (c) => {
       .catch(() => ({ detail: "Unknown error" }))) as { detail: string };
     return c.json(
       { error: error.detail || "Failed to switch model" },
-      response.status
+      response.status as ContentfulStatusCode
     );
   }
 

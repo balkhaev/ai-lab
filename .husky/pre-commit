@@ -1,8 +1,14 @@
-bun test
-
 #!/bin/sh
 # Exit on any error
 set -e
+
+# Run tests
+bun test
+
+# Run TypeScript type checking
+echo "🔍 Checking TypeScript types..."
+bun check-types
+echo "✅ TypeScript check passed"
 
 # Check if there are any staged files
 if [ -z "$(git diff --cached --name-only)" ]; then

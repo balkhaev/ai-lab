@@ -49,7 +49,7 @@ type QueueStats = {
 // Schemas
 const createTaskSchema = z.object({
   type: taskTypeSchema,
-  params: z.record(z.unknown()),
+  params: z.record(z.string(), z.unknown()),
   user_id: z.string().optional(),
 });
 
