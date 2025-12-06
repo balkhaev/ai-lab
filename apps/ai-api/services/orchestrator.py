@@ -96,11 +96,14 @@ class ModelOrchestrator:
             total = mem_info.total / (1024 * 1024)
             used = mem_info.used / (1024 * 1024)
             free = mem_info.free / (1024 * 1024)
+            logger.debug(f"GPU status (pynvml): total={total:.0f}MB, used={used:.0f}MB, free={free:.0f}MB")
         except ImportError:
-            # Fallback to torch
+            # Fallback to torch - WARNING: won't see vLLM subprocess memory!
+            logger.warning("pynvml not available, GPU memory readings may be inaccurate for vLLM")
             total = torch.cuda.get_device_properties(0).total_memory / (1024 * 1024)
             used = torch.cuda.memory_reserved(0) / (1024 * 1024)
             free = total - used
+            logger.debug(f"GPU status (torch fallback): total={total:.0f}MB, used={used:.0f}MB, free={free:.0f}MB")
         
         return GPUStatus(total, used, free)
     
@@ -166,11 +169,14 @@ class ModelOrchestrator:
         """
         gpu = self.get_gpu_status()
         
+        logger.info(f"Memory check: {gpu.free_mb:.0f}MB free, {required_mb:.0f}MB required, {len(self._models)} models loaded")
+        
         if gpu.free_mb >= required_mb:
-            logger.info(f"Memory available: {gpu.free_mb:.0f}MB free, {required_mb:.0f}MB required")
+            logger.info(f"Memory available: {gpu.free_mb:.0f}MB free >= {required_mb:.0f}MB required")
             return
         
-        logger.info(f"Need to free memory: {gpu.free_mb:.0f}MB free, {required_mb:.0f}MB required")
+        logger.info(f"Need to free memory: {gpu.free_mb:.0f}MB free < {required_mb:.0f}MB required")
+        logger.info(f"Loaded models: {list(self._models.keys())}")
         
         # Sort by last used time (LRU - least recently used first)
         candidates = sorted(

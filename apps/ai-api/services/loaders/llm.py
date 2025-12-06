@@ -102,33 +102,97 @@ async def unload_llm(engine: object) -> float:
     """
     Unload LLM model and free GPU memory.
     
+    vLLM uses subprocess workers that hold GPU memory. We need to aggressively
+    terminate them to free memory for other models.
+    
     Args:
         engine: vLLM AsyncLLMEngine instance
         
     Returns:
         Estimated freed memory in MB
     """
-    memory_before = torch.cuda.memory_allocated(0) / (1024 * 1024) if torch.cuda.is_available() else 0
+    import os
+    import signal
     
+    logger.info("Unloading LLM model...")
+    
+    # Get GPU memory before (using pynvml for accurate reading)
+    memory_before = _get_gpu_used_mb()
+    
+    # Collect vLLM worker PIDs before shutdown
+    worker_pids = []
     try:
-        # Shutdown the vLLM engine
+        if hasattr(engine, "engine") and hasattr(engine.engine, "model_executor"):
+            executor = engine.engine.model_executor
+            if hasattr(executor, "workers"):
+                for worker in executor.workers:
+                    if hasattr(worker, "process") and worker.process:
+                        worker_pids.append(worker.process.pid)
+            if hasattr(executor, "driver_worker"):
+                if hasattr(executor.driver_worker, "process"):
+                    worker_pids.append(executor.driver_worker.process.pid)
+    except Exception as e:
+        logger.debug(f"Could not collect worker PIDs: {e}")
+    
+    # Try graceful shutdown first
+    try:
         if hasattr(engine, "shutdown"):
+            logger.info("Calling engine.shutdown()...")
             await engine.shutdown()
         elif hasattr(engine, "shutdown_background_loop"):
+            logger.info("Calling engine.shutdown_background_loop()...")
             engine.shutdown_background_loop()
-        elif hasattr(engine, "_abort_all"):
-            await engine._abort_all()
     except Exception as e:
         logger.warning(f"Error during engine shutdown: {e}")
     
-    # Force garbage collection and clear CUDA cache
+    # Delete engine reference
+    del engine
+    
+    # Force garbage collection
     gc.collect()
+    
+    # Wait a bit for processes to terminate
+    import asyncio
+    await asyncio.sleep(0.5)
+    
+    # Kill any remaining worker processes
+    for pid in worker_pids:
+        try:
+            os.kill(pid, signal.SIGKILL)
+            logger.info(f"Killed vLLM worker process {pid}")
+        except (ProcessLookupError, PermissionError):
+            pass  # Process already dead
+    
+    # Clear CUDA cache
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         torch.cuda.synchronize()
     
-    memory_after = torch.cuda.memory_allocated(0) / (1024 * 1024) if torch.cuda.is_available() else 0
+    # Final GC
+    gc.collect()
+    
+    # Wait for memory to be released
+    await asyncio.sleep(1.0)
+    
+    memory_after = _get_gpu_used_mb()
     freed_memory = max(0, memory_before - memory_after)
     
-    logger.info(f"LLM model unloaded, freed ~{freed_memory:.0f}MB")
+    logger.info(f"LLM model unloaded, freed ~{freed_memory:.0f}MB (before: {memory_before:.0f}MB, after: {memory_after:.0f}MB)")
     return freed_memory
+
+
+def _get_gpu_used_mb() -> float:
+    """Get GPU used memory in MB using pynvml or torch fallback"""
+    if not torch.cuda.is_available():
+        return 0
+    
+    try:
+        import pynvml
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        pynvml.nvmlShutdown()
+        return mem_info.used / (1024 * 1024)
+    except ImportError:
+        # Fallback - but this won't see vLLM subprocess memory
+        return torch.cuda.memory_reserved(0) / (1024 * 1024)
