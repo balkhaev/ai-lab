@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 import torch
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html
 
 from config import MODEL_IDS
 from state import llm_engines, model_info, media_models, model_status
@@ -96,7 +97,7 @@ Currently no authentication is required.
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs",
-    redoc_url="/redoc",
+    redoc_url=None,  # Disable default ReDoc, using custom endpoint with stable CDN
     openapi_url="/openapi.json",
     openapi_tags=[
         {
@@ -126,6 +127,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Custom ReDoc endpoint with stable CDN version
+@app.get("/redoc", include_in_schema=False)
+async def redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url or "/openapi.json",
+        title=f"{app.title} - ReDoc",
+        redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@2.1.5/bundles/redoc.standalone.js",
+    )
 
 # Register routers
 app.include_router(health_router)

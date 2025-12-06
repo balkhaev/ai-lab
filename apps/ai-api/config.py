@@ -41,6 +41,7 @@ IMAGE2IMAGE_MODEL = os.environ.get("IMAGE2IMAGE_MODEL", "stabilityai/stable-diff
 IMAGE2IMAGE_MODELS = [
     "stabilityai/stable-diffusion-xl-refiner-1.0",  # SDXL refiner, good for img2img
     "stabilityai/stable-diffusion-xl-base-1.0",  # SDXL base
+    "Heartsync/NSFW-Uncensored",  # SDXL-based, uncensored content (NSFW)
     # "Tongyi-MAI/Z-Image-Edit",  # Coming soon - text-guided editing
 ]
 # Video models - supports multiple families with automatic pipeline detection

@@ -807,7 +807,7 @@ export default function ImagePage() {
                     </SelectContent>
                   </Select>
                   <p className="text-muted-foreground text-xs">
-                    SDXL Refiner для качественной трансформации
+                    SDXL Refiner — качество, NSFW-Uncensored — без цензуры
                   </p>
                 </div>
               ) : null}
