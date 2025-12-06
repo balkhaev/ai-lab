@@ -4,12 +4,13 @@ import { useMutation } from "@tanstack/react-query";
 import {
   Download,
   ImageIcon,
+  Info,
   Lightbulb,
   Loader2,
-  Play,
   Upload,
   Video,
   X,
+  Zap,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -26,9 +27,27 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { TaskProgress } from "@/components/ui/task-progress";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useTask } from "@/hooks/use-task";
 import { generateVideo, getTaskResult, type Task } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+// Current video model configuration
+const VIDEO_MODEL = {
+  id: "Phr00t/WAN2.2-14B-Rapid-AllInOne",
+  name: "WAN Rapid",
+  description: "FP8, 4 steps, 8GB VRAM",
+  fps: 24,
+  isRapid: true,
+  // Rapid model uses fixed optimal params: 4 steps, CFG 1
+  defaultSteps: 4,
+  defaultCfg: 1.0,
+};
 
 type GeneratedVideo = {
   video_base64: string;
@@ -40,8 +59,9 @@ export default function VideoPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
-  const [steps, setSteps] = useState(50);
-  const [guidanceScale, setGuidanceScale] = useState(6.0);
+  // Use model defaults - Rapid model uses 4 steps, CFG 1 automatically
+  const [steps, setSteps] = useState(VIDEO_MODEL.defaultSteps);
+  const [guidanceScale, setGuidanceScale] = useState(VIDEO_MODEL.defaultCfg);
   const [numFrames, setNumFrames] = useState(49);
   const [seed, setSeed] = useState<number | null>(null);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
@@ -182,11 +202,36 @@ export default function VideoPage() {
       <div className="flex-1 overflow-auto p-6">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="mb-2 font-bold text-2xl tracking-tight">
-            <span className="gradient-neon-text">Генерация</span> видео
-          </h1>
+          <div className="mb-2 flex flex-wrap items-center gap-3">
+            <h1 className="font-bold text-2xl tracking-tight">
+              <span className="gradient-neon-text">Генерация</span> видео
+            </h1>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className="cursor-help gap-1" variant="neon">
+                    <Zap className="h-3 w-3" />
+                    {VIDEO_MODEL.name}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <div className="space-y-1 text-xs">
+                    <p className="font-medium">{VIDEO_MODEL.id}</p>
+                    <p className="text-muted-foreground">
+                      {VIDEO_MODEL.description}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Автоматически: {VIDEO_MODEL.defaultSteps} шагов, CFG{" "}
+                      {VIDEO_MODEL.defaultCfg}
+                    </p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <p className="text-muted-foreground">
-            Оживите изображения с помощью wan2.2-Remix (image-to-video)
+            Оживите изображения с помощью image-to-video генерации (
+            {VIDEO_MODEL.fps} FPS)
           </p>
         </div>
 
@@ -315,7 +360,7 @@ export default function VideoPage() {
                   completed: "Видео готово!",
                   failed: "Ошибка генерации",
                 }}
-                onCancel={isFailed ? handleDismissTask : undefined}
+                onCancel={isFailed ? handleDismissTask : null}
                 onRetry={() => mutation.mutate()}
                 task={task}
               />
@@ -374,8 +419,8 @@ export default function VideoPage() {
                       </p>
                     </div>
                     <Badge className="text-xs" variant="purple">
-                      <Play className="mr-1 h-3 w-3" />
-                      wan2.2-Remix
+                      <Zap className="mr-1 h-3 w-3" />
+                      {VIDEO_MODEL.name}
                     </Badge>
                   </CardContent>
                 </Card>
@@ -403,38 +448,94 @@ export default function VideoPage() {
       <aside className="hidden w-[320px] border-border/50 border-l bg-card/50 backdrop-blur-sm lg:block">
         <div className="sticky top-0 h-full overflow-auto p-6">
           <div className="space-y-6">
+            {/* Model info */}
+            {VIDEO_MODEL.isRapid ? (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Zap className="mt-0.5 h-4 w-4 text-primary" />
+                    <div className="space-y-1 text-xs">
+                      <p className="font-medium text-primary">Rapid Mode</p>
+                      <p className="text-muted-foreground">
+                        Автоматически применяются оптимальные параметры:{" "}
+                        {VIDEO_MODEL.defaultSteps} шагов, CFG{" "}
+                        {VIDEO_MODEL.defaultCfg}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+
             {/* Parameters */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="font-medium text-sm">Steps</Label>
+                <Label className="flex items-center gap-1.5 font-medium text-sm">
+                  Steps
+                  {VIDEO_MODEL.isRapid ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="h-3 w-3 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Для Rapid модели рекомендуется{" "}
+                          {VIDEO_MODEL.defaultSteps} шагов
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : null}
+                </Label>
                 <span className="font-mono text-primary text-sm">{steps}</span>
               </div>
               <Slider
-                max={100}
-                min={10}
+                max={VIDEO_MODEL.isRapid ? 10 : 100}
+                min={VIDEO_MODEL.isRapid ? 1 : 10}
                 onValueChange={([v]) => setSteps(v)}
-                step={5}
+                step={1}
                 value={[steps]}
               />
               <p className="text-muted-foreground text-xs">
-                Больше = выше качество, дольше генерация
+                {VIDEO_MODEL.isRapid
+                  ? "Rapid: 4 шага оптимально"
+                  : "Больше = выше качество, дольше генерация"}
               </p>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="font-medium text-sm">Guidance Scale</Label>
+                <Label className="flex items-center gap-1.5 font-medium text-sm">
+                  Guidance Scale (CFG)
+                  {VIDEO_MODEL.isRapid ? (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="h-3 w-3 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          Для Rapid модели рекомендуется CFG{" "}
+                          {VIDEO_MODEL.defaultCfg}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ) : null}
+                </Label>
                 <span className="font-mono text-primary text-sm">
                   {guidanceScale.toFixed(1)}
                 </span>
               </div>
               <Slider
-                max={20}
+                max={VIDEO_MODEL.isRapid ? 5 : 20}
                 min={1}
                 onValueChange={([v]) => setGuidanceScale(v)}
                 step={0.5}
                 value={[guidanceScale]}
               />
+              <p className="text-muted-foreground text-xs">
+                {VIDEO_MODEL.isRapid
+                  ? "Rapid: CFG 1 оптимально"
+                  : "Влияние промпта на генерацию"}
+              </p>
             </div>
 
             <div className="space-y-3">
@@ -445,14 +546,15 @@ export default function VideoPage() {
                 </span>
               </div>
               <Slider
-                max={81}
-                min={16}
+                max={97}
+                min={17}
                 onValueChange={([v]) => setNumFrames(v)}
-                step={1}
+                step={8}
                 value={[numFrames]}
               />
               <p className="text-muted-foreground text-xs">
-                При 8 FPS: ~{(numFrames / 8).toFixed(1)} сек видео
+                При {VIDEO_MODEL.fps} FPS: ~
+                {(numFrames / VIDEO_MODEL.fps).toFixed(1)} сек видео
               </p>
             </div>
 
@@ -479,7 +581,7 @@ export default function VideoPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 font-medium text-sm">
                   <Lightbulb className="h-4 w-4 text-accent" />
-                  Советы
+                  Советы для {VIDEO_MODEL.name}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-muted-foreground text-xs">
@@ -489,7 +591,12 @@ export default function VideoPage() {
                   приближается&quot;, &quot;волосы развеваются&quot;
                 </p>
                 <p>• Избегайте резких изменений сцены</p>
-                <p>• Оптимальный размер: 720x480 или 480x720</p>
+                <p>• Оптимальный размер: 832x480 (16:9) или 480x832 (9:16)</p>
+                {VIDEO_MODEL.isRapid ? (
+                  <p className="text-primary">
+                    • Rapid: генерация за ~30 сек на 4090
+                  </p>
+                ) : null}
               </CardContent>
             </Card>
           </div>

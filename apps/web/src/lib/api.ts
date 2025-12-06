@@ -1,9 +1,59 @@
 const API_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:3000";
 
+// Multimodal content types
+export type TextContent = {
+  type: "text";
+  text: string;
+};
+
+export type ImageContent = {
+  type: "image_url";
+  image_url: { url: string };
+};
+
+export type ContentPart = TextContent | ImageContent;
+
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | ContentPart[];
 };
+
+// Helper to create text-only message
+export function textMessage(
+  role: ChatMessage["role"],
+  text: string
+): ChatMessage {
+  return { role, content: text };
+}
+
+// Helper to create message with images
+export function multimodalMessage(
+  role: ChatMessage["role"],
+  text: string,
+  imageUrls: string[]
+): ChatMessage {
+  const content: ContentPart[] = [];
+
+  // Add images first
+  for (const url of imageUrls) {
+    content.push({ type: "image_url", image_url: { url } });
+  }
+
+  // Add text
+  content.push({ type: "text", text });
+
+  return { role, content };
+}
+
+// Helper to convert File to base64 data URL
+export function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export type Model = {
   name: string;

@@ -294,7 +294,7 @@ function ChartLegendContent({
               )}
               key={item.value}
             >
-              {itemConfig?.icon && !hideIcon ? (
+              {itemConfig?.icon !== undefined && !hideIcon ? (
                 <itemConfig.icon />
               ) : (
                 <div

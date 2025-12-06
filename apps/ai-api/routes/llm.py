@@ -10,7 +10,12 @@ from fastapi.responses import StreamingResponse
 
 from models.llm import ChatRequest, CompareRequest
 from models.queue import TaskType, TaskResponse
-from services.llm import format_chat_prompt, generate_llm_stream
+from services.llm import (
+    format_chat_prompt,
+    generate_llm_stream,
+    extract_images_from_messages,
+    extract_images_from_message_dicts,
+)
 from services.queue import create_task
 from state import llm_engines, model_info
 
@@ -37,10 +42,10 @@ async def list_models():
 @router.post(
     "/chat",
     summary="Chat completion",
-    description="Generate a chat completion using the specified model",
+    description="Generate a chat completion using the specified model. Supports multimodal content with images.",
 )
 async def chat(request: ChatRequest):
-    """Chat with a model"""
+    """Chat with a model (supports vision models with image inputs)"""
     from vllm import SamplingParams
 
     # Find engine by model name
@@ -58,6 +63,9 @@ async def chat(request: ChatRequest):
 
     prompt = format_chat_prompt(request.messages, model_id)
 
+    # Extract images from messages for vision models
+    images = extract_images_from_messages(request.messages)
+
     sampling_params = SamplingParams(
         temperature=request.temperature,
         top_p=request.top_p,
@@ -67,7 +75,7 @@ async def chat(request: ChatRequest):
 
     if request.stream:
         return StreamingResponse(
-            generate_llm_stream(engine, prompt, sampling_params, request.model),
+            generate_llm_stream(engine, prompt, sampling_params, request.model, images if images else None),
             media_type="text/event-stream",
         )
 
@@ -75,8 +83,13 @@ async def chat(request: ChatRequest):
     request_id = str(uuid.uuid4())
     start_time = time.time()
 
+    # Prepare inputs for multimodal models
+    inputs = {"prompt": prompt}
+    if images:
+        inputs["multi_modal_data"] = {"image": images}
+
     results = []
-    async for output in engine.generate(prompt, sampling_params, request_id):
+    async for output in engine.generate(inputs, sampling_params, request_id):
         results.append(output)
 
     final_output = results[-1] if results else None

@@ -7,13 +7,33 @@ const AI_API_URL = process.env.AI_API_URL || "http://localhost:8000";
 
 const llm = new Hono();
 
+// Content part schemas for multimodal messages
+const textContentSchema = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+});
+
+const imageUrlSchema = z.object({
+  url: z.string(), // Can be URL or data:image/...;base64,...
+});
+
+const imageContentSchema = z.object({
+  type: z.literal("image_url"),
+  image_url: imageUrlSchema,
+});
+
+const contentPartSchema = z.union([textContentSchema, imageContentSchema]);
+
+// Message content can be string or array of content parts
+const messageContentSchema = z.union([z.string(), z.array(contentPartSchema)]);
+
 // Schemas
 const chatSchema = z.object({
   model: z.string(),
   messages: z.array(
     z.object({
       role: z.enum(["system", "user", "assistant"]),
-      content: z.string(),
+      content: messageContentSchema,
     })
   ),
   stream: z.boolean().optional().default(true),
@@ -32,7 +52,7 @@ const compareSchema = z.object({
   messages: z.array(
     z.object({
       role: z.enum(["system", "user", "assistant"]),
-      content: z.string(),
+      content: messageContentSchema,
     })
   ),
   options: z
@@ -45,9 +65,21 @@ const compareSchema = z.object({
     .optional(),
 });
 
+type TextContent = {
+  type: "text";
+  text: string;
+};
+
+type ImageContent = {
+  type: "image_url";
+  image_url: { url: string };
+};
+
+type ContentPart = TextContent | ImageContent;
+
 type ChatMessage = {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | ContentPart[];
 };
 
 type AIApiResponse = {

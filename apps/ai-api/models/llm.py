@@ -1,13 +1,31 @@
 """
 LLM-related Pydantic models
 """
+from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class TextContent(BaseModel):
+    """Text content part"""
+    type: Literal["text"] = "text"
+    text: str = Field(..., description="Text content")
+
+
+class ImageUrl(BaseModel):
+    """Image URL or base64 data"""
+    url: str = Field(..., description="Image URL or data:image/...;base64,... format")
+
+
+class ImageContent(BaseModel):
+    """Image content part"""
+    type: Literal["image_url"] = "image_url"
+    image_url: ImageUrl = Field(..., description="Image URL object")
+
+
 class ChatMessage(BaseModel):
-    """Single chat message"""
+    """Single chat message with optional multimodal content"""
     role: str = Field(..., description="Role: system, user, or assistant")
-    content: str = Field(..., description="Message content")
+    content: str | list[TextContent | ImageContent] = Field(..., description="Message content - string or array of content parts")
 
 
 class ChatRequest(BaseModel):

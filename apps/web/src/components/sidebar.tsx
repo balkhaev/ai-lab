@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Cpu,
+  GitCompare,
   Home,
   ImageIcon,
   MessageSquare,
@@ -18,9 +19,10 @@ import { Button } from "./ui/button";
 
 const navItems = [
   { href: "/", label: "Главная", icon: Home },
+  { href: "/chat", label: "Чат", icon: MessageSquare },
   { href: "/image", label: "Изображения", icon: ImageIcon },
   { href: "/video", label: "Видео", icon: Video },
-  { href: "/compare", label: "Сравнение LLM", icon: MessageSquare },
+  { href: "/compare", label: "Сравнение LLM", icon: GitCompare },
   { href: "/models", label: "Модели", icon: Cpu },
 ] as const;
 

@@ -16,13 +16,22 @@ import { cn } from "@/lib/utils";
 
 const features = [
   {
+    href: "/chat" as const,
+    icon: MessageSquare,
+    title: "AI Чат",
+    description:
+      "Общайтесь с AI, прикрепляйте изображения. Vision-модели понимают картинки.",
+    gradient: "from-primary to-accent",
+    glowColor: "rgba(255, 45, 117, 0.3)",
+  },
+  {
     href: "/image" as const,
     icon: ImageIcon,
     title: "Генерация изображений",
     description:
       "Создавайте уникальные изображения с помощью Z-Image-Turbo. Высокое качество за секунды.",
-    gradient: "from-primary to-accent",
-    glowColor: "rgba(255, 45, 117, 0.3)",
+    gradient: "from-accent to-[oklch(0.75_0.15_195)]",
+    glowColor: "rgba(168, 85, 247, 0.3)",
   },
   {
     href: "/video" as const,
@@ -30,15 +39,6 @@ const features = [
     title: "Генерация видео",
     description:
       "Оживите изображения с wan2.2-Remix. Превратите статику в динамику.",
-    gradient: "from-accent to-[oklch(0.75_0.15_195)]",
-    glowColor: "rgba(168, 85, 247, 0.3)",
-  },
-  {
-    href: "/compare" as const,
-    icon: MessageSquare,
-    title: "Сравнение LLM",
-    description:
-      "Тестируйте разные языковые модели на одном промпте. Найдите лучшую для ваших задач.",
     gradient: "from-[oklch(0.75_0.15_195)] to-primary",
     glowColor: "rgba(6, 182, 212, 0.3)",
   },
@@ -73,13 +73,16 @@ export default function Home() {
 
         <div className="flex flex-wrap justify-center gap-4">
           <Button asChild size="lg" variant="neon">
-            <Link href="/image">
-              <Sparkles className="mr-2 h-5 w-5" />
-              Начать генерацию
+            <Link href="/chat">
+              <MessageSquare className="mr-2 h-5 w-5" />
+              Начать чат
             </Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/compare">Сравнить модели</Link>
+            <Link href="/image">
+              <Sparkles className="mr-2 h-5 w-5" />
+              Генерация
+            </Link>
           </Button>
         </div>
 
@@ -170,6 +173,12 @@ export default function Home() {
 
           <div className="flex flex-wrap justify-center gap-3">
             <Button asChild variant="outline">
+              <Link href="/chat">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Чат
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
               <Link href="/image">
                 <ImageIcon className="mr-2 h-4 w-4" />
                 Изображение
@@ -179,12 +188,6 @@ export default function Home() {
               <Link href="/video">
                 <Video className="mr-2 h-4 w-4" />
                 Видео
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/compare">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                LLM
               </Link>
             </Button>
           </div>
