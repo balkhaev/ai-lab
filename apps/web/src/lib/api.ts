@@ -312,6 +312,9 @@ export type ModelsListResponse = {
   gpu_memory_total_mb: number | null;
   gpu_memory_used_mb: number | null;
   gpu_memory_free_mb: number | null;
+  disk_total_gb: number | null;
+  disk_used_gb: number | null;
+  disk_free_gb: number | null;
 };
 
 export type LoadModelRequest = {

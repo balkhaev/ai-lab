@@ -66,3 +66,6 @@ class ModelsListResponse(BaseModel):
     gpu_memory_total_mb: float | None = Field(default=None, description="Total GPU memory in MB")
     gpu_memory_used_mb: float | None = Field(default=None, description="Used GPU memory in MB")
     gpu_memory_free_mb: float | None = Field(default=None, description="Free GPU memory in MB")
+    disk_total_gb: float | None = Field(default=None, description="Total disk space in GB")
+    disk_used_gb: float | None = Field(default=None, description="Used disk space in GB")
+    disk_free_gb: float | None = Field(default=None, description="Free disk space in GB")

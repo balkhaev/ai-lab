@@ -21,17 +21,50 @@ from state import llm_engines, model_info, media_models, model_status
 logger = logging.getLogger(__name__)
 
 
+def get_disk_usage_info() -> tuple[float | None, float | None, float | None]:
+    """Get disk usage info in GB for HuggingFace cache: (total, used, free)"""
+    import os
+    import shutil
+
+    # Get HF cache directory
+    hf_home = os.environ.get("HF_HOME", os.path.expanduser("~/.cache/huggingface"))
+
+    try:
+        # Get disk usage for the partition containing HF cache
+        usage = shutil.disk_usage(hf_home)
+        total = usage.total / (1024 ** 3)  # GB
+        used = usage.used / (1024 ** 3)
+        free = usage.free / (1024 ** 3)
+        return total, used, free
+    except OSError:
+        return None, None, None
+
+
 def get_gpu_memory_info() -> tuple[float | None, float | None, float | None]:
     """Get GPU memory info in MB: (total, used, free)"""
     if not torch.cuda.is_available():
         return None, None, None
 
-    total = torch.cuda.get_device_properties(0).total_memory / (1024 * 1024)
-    reserved = torch.cuda.memory_reserved(0) / (1024 * 1024)
-    allocated = torch.cuda.memory_allocated(0) / (1024 * 1024)
-    free = total - reserved
+    try:
+        # Try pynvml for accurate GPU memory (includes vLLM allocations)
+        import pynvml
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        pynvml.nvmlShutdown()
 
-    return total, allocated, free
+        total = mem_info.total / (1024 * 1024)
+        used = mem_info.used / (1024 * 1024)
+        free = mem_info.free / (1024 * 1024)
+
+        return total, used, free
+    except ImportError:
+        # Fallback to torch (may not show vLLM memory)
+        total = torch.cuda.get_device_properties(0).total_memory / (1024 * 1024)
+        reserved = torch.cuda.memory_reserved(0) / (1024 * 1024)
+        free = total - reserved
+
+        return total, reserved, free
 
 
 def estimate_model_memory() -> float | None:

@@ -19,6 +19,7 @@ from services.model_manager import (
     unload_model,
     get_all_models,
     get_gpu_memory_info,
+    get_disk_usage_info,
 )
 from state import model_status as model_status_store
 
@@ -36,13 +37,17 @@ router = APIRouter(prefix="/models", tags=["Model Management"])
 async def list_models():
     """List all models with their status"""
     models = get_all_models()
-    total, used, free = get_gpu_memory_info()
+    gpu_total, gpu_used, gpu_free = get_gpu_memory_info()
+    disk_total, disk_used, disk_free = get_disk_usage_info()
 
     return ModelsListResponse(
         models=models,
-        gpu_memory_total_mb=total,
-        gpu_memory_used_mb=used,
-        gpu_memory_free_mb=free,
+        gpu_memory_total_mb=gpu_total,
+        gpu_memory_used_mb=gpu_used,
+        gpu_memory_free_mb=gpu_free,
+        disk_total_gb=disk_total,
+        disk_used_gb=disk_used,
+        disk_free_gb=disk_free,
     )
 
 

@@ -323,6 +323,50 @@ function GpuMemoryCard({
   );
 }
 
+function formatGb(gb: number | null): string {
+  if (gb === null) return "N/A";
+  if (gb >= 1024) return `${(gb / 1024).toFixed(1)} TB`;
+  return `${gb.toFixed(1)} GB`;
+}
+
+function DiskUsageCard({
+  total,
+  used,
+  free,
+}: {
+  total: number | null;
+  used: number | null;
+  free: number | null;
+}) {
+  const usagePercent = total && used ? Math.round((used / total) * 100) : 0;
+
+  return (
+    <CardGlass>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <HardDrive className="h-5 w-5 text-blue-500" />
+          Диск (кэш моделей)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Использовано</span>
+            <span className="font-medium font-mono">
+              {formatGb(used)} / {formatGb(total)}
+            </span>
+          </div>
+          <Progress className="h-2" value={usagePercent} />
+          <div className="flex justify-between text-muted-foreground text-xs">
+            <span>{usagePercent}% использовано</span>
+            <span>{formatGb(free)} свободно</span>
+          </div>
+        </div>
+      </CardContent>
+    </CardGlass>
+  );
+}
+
 export default function ModelsPage() {
   const queryClient = useQueryClient();
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
@@ -457,12 +501,19 @@ export default function ModelsPage() {
       {/* Content */}
       {data && (
         <div className="space-y-6">
-          {/* GPU Memory Card */}
-          <GpuMemoryCard
-            free={data.gpu_memory_free_mb}
-            total={data.gpu_memory_total_mb}
-            used={data.gpu_memory_used_mb}
-          />
+          {/* System Stats */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <GpuMemoryCard
+              free={data.gpu_memory_free_mb}
+              total={data.gpu_memory_total_mb}
+              used={data.gpu_memory_used_mb}
+            />
+            <DiskUsageCard
+              free={data.disk_free_gb}
+              total={data.disk_total_gb}
+              used={data.disk_used_gb}
+            />
+          </div>
 
           {/* Loaded models */}
           {loadedModels.length > 0 && (
