@@ -360,6 +360,7 @@ export default function VideoPage() {
                   completed: "Видео готово!",
                   failed: "Ошибка генерации",
                 }}
+                // biome-ignore lint/nursery/noLeakedRender: prop value, not rendered content
                 onCancel={isFailed ? handleDismissTask : undefined}
                 onRetry={() => mutation.mutate()}
                 task={task}

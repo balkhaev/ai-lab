@@ -1,5 +1,7 @@
 """
 Task Worker Service - Background processing of queued tasks
+
+Note: ai-api is a stateless service. Parameters are passed explicitly from gateway.
 """
 import asyncio
 import base64
@@ -44,16 +46,16 @@ _worker_running = False
 
 
 async def process_image_task(task_id: str, params: dict) -> dict:
-    """Process an image generation task"""
+    """Process an image generation task. All parameters come from gateway with presets applied."""
     logger.info(f"Processing image task {task_id}")
     
-    # Extract parameters
+    # Extract parameters (all should be provided by gateway)
     prompt = params["prompt"]
     negative_prompt = params.get("negative_prompt", "")
     width = params.get("width", 1024)
     height = params.get("height", 1024)
-    num_inference_steps = params.get("num_inference_steps", 9)  # 9 for Z-Image-Turbo
-    guidance_scale = params.get("guidance_scale", 0.0)  # 0.0 for Z-Image-Turbo
+    num_inference_steps = params.get("num_inference_steps", 30)
+    guidance_scale = params.get("guidance_scale", 7.5)
     seed = params.get("seed")
     model = params.get("model") or IMAGE_MODEL
     
@@ -89,10 +91,10 @@ async def process_image_task(task_id: str, params: dict) -> dict:
 
 
 async def process_image2image_task(task_id: str, params: dict) -> dict:
-    """Process an image-to-image task"""
+    """Process an image-to-image task. All parameters come from gateway with presets applied."""
     logger.info(f"Processing image2image task {task_id}")
     
-    # Extract parameters
+    # Extract parameters (all should be provided by gateway)
     prompt = params["prompt"]
     image_base64 = params["image_base64"]
     negative_prompt = params.get("negative_prompt", "")

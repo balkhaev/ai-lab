@@ -72,9 +72,39 @@ export type ImageGenerationParams = {
   model?: string;
 };
 
+export type ImagePreset = {
+  model_id: string;
+  name: string;
+  description: string;
+  num_inference_steps: number;
+  guidance_scale: number;
+  width: number;
+  height: number;
+  min_guidance: number;
+  max_guidance: number;
+  min_steps: number;
+  max_steps: number;
+  supports_negative_prompt: boolean;
+};
+
+export type Image2ImagePreset = {
+  model_id: string;
+  name: string;
+  description: string;
+  num_inference_steps: number;
+  guidance_scale: number;
+  strength: number;
+  min_guidance: number;
+  max_guidance: number;
+  min_steps: number;
+  max_steps: number;
+  supports_negative_prompt: boolean;
+};
+
 export type ImageModelsResponse = {
   models: string[];
   current_model: string | null;
+  presets: Record<string, ImagePreset>;
 };
 
 export type ImageGenerationResponse = {
@@ -105,6 +135,7 @@ export type Image2ImageParams = {
 export type Image2ImageModelsResponse = {
   models: string[];
   current_model: string | null;
+  presets: Record<string, Image2ImagePreset>;
 };
 
 export type Image2ImageResponse = {

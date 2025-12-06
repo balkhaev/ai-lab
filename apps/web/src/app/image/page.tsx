@@ -14,7 +14,7 @@ import {
   Wand2,
   X,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardGlass } from "@/components/ui/card";
@@ -37,7 +37,9 @@ import {
   getImage2ImageModels,
   getImageModels,
   type Image2ImageParams,
+  type Image2ImagePreset,
   type ImageGenerationParams,
+  type ImagePreset,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -75,10 +77,13 @@ export default function ImagePage() {
   // Text2Image state
   const [width, setWidth] = useState(1024);
   const [height, setHeight] = useState(1024);
-  const [steps, setSteps] = useState(9); // 9 for Z-Image-Turbo
-  const [guidanceScale, setGuidanceScale] = useState(0); // 0.0 for Z-Image-Turbo
+  const [steps, setSteps] = useState(9);
+  const [guidanceScale, setGuidanceScale] = useState(0);
   const [selectedT2IModel, setSelectedT2IModel] = useState<string | undefined>(
     undefined
+  );
+  const [currentT2IPreset, setCurrentT2IPreset] = useState<ImagePreset | null>(
+    null
   );
 
   // Image2Image state
@@ -92,6 +97,8 @@ export default function ImagePage() {
   const [selectedI2IModel, setSelectedI2IModel] = useState<string | undefined>(
     undefined
   );
+  const [currentI2IPreset, setCurrentI2IPreset] =
+    useState<Image2ImagePreset | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch available text2image models
@@ -107,6 +114,69 @@ export default function ImagePage() {
     queryFn: getImage2ImageModels,
     staleTime: 60_000,
   });
+
+  // Apply preset when T2I model changes
+  const handleT2IModelChange = useCallback(
+    (modelId: string) => {
+      setSelectedT2IModel(modelId);
+      const preset = t2iModelsData?.presets?.[modelId];
+      if (preset) {
+        setCurrentT2IPreset(preset);
+        setSteps(preset.num_inference_steps);
+        setGuidanceScale(preset.guidance_scale);
+        setWidth(preset.width);
+        setHeight(preset.height);
+      }
+    },
+    [t2iModelsData?.presets]
+  );
+
+  // Apply preset when I2I model changes
+  const handleI2IModelChange = useCallback(
+    (modelId: string) => {
+      setSelectedI2IModel(modelId);
+      const preset = i2iModelsData?.presets?.[modelId];
+      if (preset) {
+        setCurrentI2IPreset(preset);
+        setI2iSteps(preset.num_inference_steps);
+        setI2iGuidanceScale(preset.guidance_scale);
+        setStrength(preset.strength);
+      }
+    },
+    [i2iModelsData?.presets]
+  );
+
+  // Initialize preset from current model on first load
+  useEffect(() => {
+    if (t2iModelsData?.presets && !currentT2IPreset) {
+      const defaultModel =
+        t2iModelsData.current_model || t2iModelsData.models[0];
+      if (defaultModel) {
+        const preset = t2iModelsData.presets[defaultModel];
+        if (preset) {
+          setCurrentT2IPreset(preset);
+          setSteps(preset.num_inference_steps);
+          setGuidanceScale(preset.guidance_scale);
+        }
+      }
+    }
+  }, [t2iModelsData, currentT2IPreset]);
+
+  useEffect(() => {
+    if (i2iModelsData?.presets && !currentI2IPreset) {
+      const defaultModel =
+        i2iModelsData.current_model || i2iModelsData.models[0];
+      if (defaultModel) {
+        const preset = i2iModelsData.presets[defaultModel];
+        if (preset) {
+          setCurrentI2IPreset(preset);
+          setI2iSteps(preset.num_inference_steps);
+          setI2iGuidanceScale(preset.guidance_scale);
+          setStrength(preset.strength);
+        }
+      }
+    }
+  }, [i2iModelsData, currentI2IPreset]);
 
   // Text2Image mutation
   const text2imageMutation = useMutation({
@@ -648,7 +718,7 @@ export default function ImagePage() {
                 <div className="space-y-3">
                   <Label className="font-medium text-sm">Модель</Label>
                   <Select
-                    onValueChange={setSelectedT2IModel}
+                    onValueChange={handleT2IModelChange}
                     value={
                       selectedT2IModel ||
                       t2iModelsData.current_model ||
@@ -792,7 +862,7 @@ export default function ImagePage() {
                 <div className="space-y-3">
                   <Label className="font-medium text-sm">Модель</Label>
                   <Select
-                    onValueChange={setSelectedI2IModel}
+                    onValueChange={handleI2IModelChange}
                     value={
                       selectedI2IModel ||
                       i2iModelsData.current_model ||

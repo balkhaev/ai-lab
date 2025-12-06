@@ -1,5 +1,8 @@
 """
 Media generation endpoints - image and video
+
+Note: ai-api is a stateless service. All parameters must be passed explicitly.
+Presets and defaults are managed by gateway.
 """
 import base64
 import io
@@ -27,12 +30,6 @@ from models.media import (
     VideoTaskResponse,
 )
 from models.queue import TaskType, TaskResponse
-from presets import (
-    get_image_preset,
-    get_image2image_preset,
-    get_all_image_presets,
-    get_all_image2image_presets,
-)
 from services.orchestrator import orchestrator
 from services.queue import create_task, get_task
 
@@ -41,67 +38,54 @@ router = APIRouter(prefix="/generate", tags=["Media Generation"])
 
 @router.get(
     "/image/models",
-    summary="Get available text2image models with presets",
-    description="Returns list of available models with their optimal configurations",
+    summary="Get available text2image models",
+    description="Returns list of available models for text-to-image generation",
 )
 async def get_image_models():
-    """Get list of available text2image models with presets"""
-    # Get current loaded image model from orchestrator
+    """Get list of available text2image models"""
     image_model = orchestrator.get_by_type(ModelType.IMAGE)
     current_model = image_model.model_id if image_model else None
-    
-    # Get presets for all models
-    all_presets = get_all_image_presets()
-    presets = {model: all_presets.get(model, get_image_preset(model)) for model in IMAGE_MODELS}
-    
     return {
         "models": IMAGE_MODELS,
         "current_model": current_model,
-        "presets": presets,
     }
 
 
 @router.get(
     "/image2image/models",
-    summary="Get available image2image models with presets",
-    description="Returns list of available models with their optimal configurations",
+    summary="Get available image2image models",
+    description="Returns list of available models for image-to-image generation",
 )
 async def get_image2image_models():
-    """Get list of available image2image models with presets"""
-    # Get current loaded image2image model from orchestrator
+    """Get list of available image2image models"""
     image2image_model = orchestrator.get_by_type(ModelType.IMAGE2IMAGE)
     current_model = image2image_model.model_id if image2image_model else None
-    
-    # Get presets for all models
-    all_presets = get_all_image2image_presets()
-    presets = {model: all_presets.get(model, get_image2image_preset(model)) for model in IMAGE2IMAGE_MODELS}
-    
     return {
         "models": IMAGE2IMAGE_MODELS,
         "current_model": current_model,
-        "presets": presets,
     }
 
 
 @router.post(
     "/image",
     summary="Generate image",
-    description="Generate an image from a text prompt using a diffusion model. Use async_mode=true to queue the task.",
+    description="Generate an image from a text prompt. All parameters must be passed explicitly.",
 )
 async def generate_image(
     request: ImageGenerationRequest,
-    async_mode: bool = Query(False, description="If true, queue task and return task_id instead of waiting"),
+    async_mode: bool = Query(False, description="If true, queue task and return task_id"),
 ):
     """Generate image using diffusion model"""
     if not ENABLE_IMAGE:
         raise HTTPException(status_code=503, detail="Image generation is disabled")
 
-    # Validate model if specified
     if request.model and request.model not in IMAGE_MODELS:
         raise HTTPException(
             status_code=400, 
             detail=f"Invalid model. Available models: {IMAGE_MODELS}"
         )
+
+    model_id = request.model or IMAGE_MODEL
 
     # Async mode: create task and return immediately
     if async_mode:
@@ -115,7 +99,7 @@ async def generate_image(
                 "num_inference_steps": request.num_inference_steps,
                 "guidance_scale": request.guidance_scale,
                 "seed": request.seed,
-                "model": request.model,
+                "model": model_id,
             },
         )
         return TaskResponse(
@@ -132,8 +116,6 @@ async def generate_image(
     # Sync mode: generate immediately
     start_time = time.time()
 
-    # Use orchestrator to ensure model is loaded
-    model_id = request.model or IMAGE_MODEL
     loaded_model = await orchestrator.ensure_loaded(model_id, ModelType.IMAGE)
     pipe = loaded_model.instance
 
@@ -168,7 +150,7 @@ async def generate_image(
 @router.post(
     "/image2image",
     summary="Transform image with prompt",
-    description="Transform an existing image based on a text prompt. Use async_mode=true to queue the task.",
+    description="Transform an existing image based on a text prompt.",
 )
 async def generate_image2image(
     image: UploadFile = File(..., description="Input image to transform"),
@@ -185,19 +167,17 @@ async def generate_image2image(
     if not ENABLE_IMAGE2IMAGE:
         raise HTTPException(status_code=503, detail="Image-to-image generation is disabled")
 
-    # Validate model if specified
     if model and model not in IMAGE2IMAGE_MODELS:
         raise HTTPException(
             status_code=400, 
             detail=f"Invalid model. Available models: {IMAGE2IMAGE_MODELS}"
         )
 
-    # Read and process input image
     contents = await image.read()
+    model_id = model or IMAGE2IMAGE_MODEL
     
     # Async mode: create task and return immediately
     if async_mode:
-        # Encode image to base64 for storage
         image_base64 = base64.b64encode(contents).decode("utf-8")
         
         task = await create_task(
@@ -210,7 +190,7 @@ async def generate_image2image(
                 "num_inference_steps": num_inference_steps,
                 "guidance_scale": guidance_scale,
                 "seed": seed,
-                "model": model,
+                "model": model_id,
             },
         )
         return TaskResponse(
@@ -229,8 +209,6 @@ async def generate_image2image(
     
     pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
 
-    # Use orchestrator to ensure model is loaded
-    model_id = model or IMAGE2IMAGE_MODEL
     loaded_model = await orchestrator.ensure_loaded(model_id, ModelType.IMAGE2IMAGE)
     pipe = loaded_model.instance
 
@@ -266,7 +244,7 @@ async def generate_image2image(
     "/video",
     response_model=TaskResponse,
     summary="Start video generation",
-    description="Start an async video generation task from an input image and text prompt. Uses Redis queue.",
+    description="Start an async video generation task from an input image and text prompt.",
 )
 async def generate_video(
     image: UploadFile = File(..., description="Input image for video generation"),
@@ -281,11 +259,8 @@ async def generate_video(
         raise HTTPException(status_code=503, detail="Video generation is disabled")
 
     contents = await image.read()
-    
-    # Encode image to base64 for storage in Redis
     image_base64 = base64.b64encode(contents).decode("utf-8")
 
-    # Create task in Redis queue
     task = await create_task(
         task_type=TaskType.VIDEO,
         params={
@@ -314,7 +289,7 @@ async def generate_video(
     "/video/status/{task_id}",
     response_model=VideoTaskResponse,
     summary="Get video generation status",
-    description="Check the status of a video generation task. Works with both old and new task IDs.",
+    description="Check the status of a video generation task.",
 )
 async def get_video_status(task_id: str):
     """Get video generation task status from Redis"""
@@ -323,7 +298,6 @@ async def get_video_status(task_id: str):
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    # Return in legacy format for backwards compatibility
     result = task.result or {}
     return VideoTaskResponse(
         task_id=task_id,

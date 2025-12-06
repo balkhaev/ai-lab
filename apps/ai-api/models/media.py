@@ -1,5 +1,8 @@
 """
 Media generation Pydantic models
+
+Note: ai-api is a stateless service. It accepts all parameters explicitly.
+Presets and defaults are managed by gateway.
 """
 from pydantic import BaseModel, Field
 
@@ -10,10 +13,10 @@ class ImageGenerationRequest(BaseModel):
     negative_prompt: str = Field(default="", description="Negative prompt")
     width: int = Field(default=1024, ge=256, le=2048, description="Image width")
     height: int = Field(default=1024, ge=256, le=2048, description="Image height")
-    num_inference_steps: int = Field(default=4, ge=1, le=50, description="Number of inference steps")
-    guidance_scale: float = Field(default=3.5, ge=1.0, le=20.0, description="Guidance scale")
+    num_inference_steps: int = Field(default=30, ge=1, le=100, description="Number of inference steps")
+    guidance_scale: float = Field(default=7.5, ge=0.0, le=20.0, description="Guidance scale")
     seed: int | None = Field(default=None, description="Random seed for reproducibility")
-    model: str | None = Field(default=None, description="Model to use (optional, uses default if not specified)")
+    model: str | None = Field(default=None, description="Model to use (uses default if not specified)")
 
 
 class Image2ImageRequest(BaseModel):
@@ -27,7 +30,7 @@ class Image2ImageRequest(BaseModel):
         description="Transformation strength (0.0 = keep original, 1.0 = full transformation)"
     )
     num_inference_steps: int = Field(default=30, ge=1, le=100, description="Number of inference steps")
-    guidance_scale: float = Field(default=7.5, ge=1.0, le=20.0, description="Guidance scale")
+    guidance_scale: float = Field(default=7.5, ge=0.0, le=20.0, description="Guidance scale")
     seed: int | None = Field(default=None, description="Random seed for reproducibility")
 
 

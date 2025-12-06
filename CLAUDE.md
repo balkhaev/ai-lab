@@ -30,8 +30,8 @@ Monorepo на Bun workspaces + Turborepo:
 ```
 apps/
 ├── web/         # Next.js 16 (React 19), порт 3001
-├── gateway/     # Hono API на Bun (проксирует к ai-api, авторизация)
-└── ai-api/      # Python FastAPI (vLLM для LLM, Diffusers для медиа)
+├── gateway/     # Hono API на Bun (бизнес-логика, пресеты, авторизация)
+└── ai-api/      # Python FastAPI (stateless, vLLM, Diffusers)
 
 packages/
 ├── db/          # Prisma + PostgreSQL
@@ -39,12 +39,62 @@ packages/
 └── config/      # Общая конфигурация
 ```
 
+### Принципы архитектуры
+
+#### ai-api — Stateless сервис
+
+- **Чистый вычислительный сервис** без бизнес-логики
+- Принимает ВСЕ параметры явно (prompt, steps, guidance, width, height, model)
+- НЕ знает о пресетах, настройках пользователей, авторизации
+- Задача: загрузить модель → выполнить генерацию → вернуть результат
+- Можно масштабировать горизонтально, деплоить на GPU-сервера
+
+#### gateway — Бизнес-логика
+
+- **Пресеты моделей** хранятся в `apps/gateway/src/presets.ts`
+- Применяет пресеты перед отправкой запроса в ai-api
+- Авторизация через `@ai-lab/auth`
+- Валидация запросов
+- Проксирование к ai-api с обогащением параметров
+
+#### web — UI
+
+- Загружает пресеты из gateway (`/api/media/image/models`)
+- Применяет пресеты в UI при выборе модели
+- Позволяет пользователю переопределить параметры
+
 ### Поток данных
 
-1. **web** → **gateway** (через `NEXT_PUBLIC_API_URL`)
-2. **gateway** → **ai-api** (через `AI_API_URL`)
-3. **gateway** обрабатывает авторизацию через **@ai-lab/auth**
-4. **@ai-lab/auth** использует **@ai-lab/db** для хранения сессий
+```
+web                    gateway                 ai-api
+ │                        │                       │
+ │ POST /api/media/image  │                       │
+ │ {prompt, model}        │                       │
+ │───────────────────────>│                       │
+ │                        │ Apply preset          │
+ │                        │ Add defaults          │
+ │                        │                       │
+ │                        │ POST /generate/image  │
+ │                        │ {prompt, model,       │
+ │                        │  steps=9, guidance=0, │
+ │                        │  width=1024, ...}     │
+ │                        │──────────────────────>│
+ │                        │                       │ Generate
+ │                        │<──────────────────────│
+ │<───────────────────────│                       │
+```
+
+### Пресеты моделей
+
+Каждая модель имеет оптимальные параметры:
+
+| Модель          | Steps | Guidance | Neg. Prompt |
+| --------------- | ----- | -------- | ----------- |
+| Z-Image-Turbo   | 9     | 0.0      | ❌          |
+| SDXL Base       | 30    | 7.5      | ✅          |
+| NSFW-Uncensored | 30    | 7.0      | ✅          |
+
+Пресеты определены в `apps/gateway/src/presets.ts`.
 
 ### Переменные окружения
 
@@ -71,3 +121,4 @@ packages/
 - Tailwind 4 (через `@tailwindcss/postcss`)
 - Prisma схема в `packages/db/prisma/schema/schema.prisma`
 - UI компоненты в `apps/web/src/components/ui/`
+- Пресеты моделей в `apps/gateway/src/presets.ts`

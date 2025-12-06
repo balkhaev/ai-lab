@@ -1,19 +1,25 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
+import {
+  getAllImage2ImagePresets,
+  getAllImagePresets,
+  getImage2ImagePreset,
+  getImagePreset,
+} from "../presets";
 
 const AI_API_URL = process.env.AI_API_URL || "http://localhost:8000";
 
 const media = new Hono();
 
-// Schemas
+// Schemas - parameters are optional, will use presets if not provided
 const imageSchema = z.object({
   prompt: z.string().min(1),
-  negative_prompt: z.string().optional().default(""),
-  width: z.number().int().min(256).max(2048).optional().default(1024),
-  height: z.number().int().min(256).max(2048).optional().default(1024),
-  num_inference_steps: z.number().int().min(1).max(50).optional().default(4),
-  guidance_scale: z.number().min(1).max(20).optional().default(3.5),
+  negative_prompt: z.string().optional(),
+  width: z.number().int().min(256).max(2048).optional(),
+  height: z.number().int().min(256).max(2048).optional(),
+  num_inference_steps: z.number().int().min(1).max(100).optional(),
+  guidance_scale: z.number().min(0).max(20).optional(),
   seed: z.number().int().optional(),
   model: z.string().optional(),
 });
@@ -30,7 +36,6 @@ type Image2ImageResponse = {
   generation_time: number;
 };
 
-// Legacy format for backwards compatibility
 type VideoTaskResponse = {
   task_id: string;
   status: "pending" | "processing" | "completed" | "failed";
@@ -39,7 +44,6 @@ type VideoTaskResponse = {
   error: string | null;
 };
 
-// New task format from queue system
 type TaskResponse = {
   id: string;
   type: "video" | "image" | "image2image" | "llm_compare";
@@ -70,7 +74,7 @@ media.get("/health", async (c) => {
   return c.json(data);
 });
 
-// Get available text2image models
+// Get available text2image models with presets
 media.get("/image/models", async (c) => {
   const response = await fetch(`${AI_API_URL}/generate/image/models`);
 
@@ -82,17 +86,45 @@ media.get("/image/models", async (c) => {
     models: string[];
     current_model: string | null;
   };
-  return c.json(data);
+
+  // Add presets from gateway
+  const allPresets = getAllImagePresets();
+  const presets: Record<string, ReturnType<typeof getImagePreset>> = {};
+  for (const model of data.models) {
+    presets[model] = allPresets[model] ?? getImagePreset(model);
+  }
+
+  return c.json({
+    ...data,
+    presets,
+  });
 });
 
-// Generate image
+// Generate image with preset support
 media.post("/image", zValidator("json", imageSchema), async (c) => {
   const body = c.req.valid("json");
+
+  // Get preset for the model
+  const preset = getImagePreset(body.model ?? "");
+
+  // Apply preset defaults for unspecified parameters
+  const requestBody = {
+    prompt: body.prompt,
+    negative_prompt: preset.supports_negative_prompt
+      ? (body.negative_prompt ?? "")
+      : "",
+    width: body.width ?? preset.width,
+    height: body.height ?? preset.height,
+    num_inference_steps: body.num_inference_steps ?? preset.num_inference_steps,
+    guidance_scale: body.guidance_scale ?? preset.guidance_scale,
+    seed: body.seed,
+    model: body.model,
+  };
 
   const response = await fetch(`${AI_API_URL}/generate/image`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
@@ -104,7 +136,7 @@ media.post("/image", zValidator("json", imageSchema), async (c) => {
   return c.json(data);
 });
 
-// Get available image2image models
+// Get available image2image models with presets
 media.get("/image2image/models", async (c) => {
   const response = await fetch(`${AI_API_URL}/generate/image2image/models`);
 
@@ -116,14 +148,50 @@ media.get("/image2image/models", async (c) => {
     models: string[];
     current_model: string | null;
   };
-  return c.json(data);
+
+  // Add presets from gateway
+  const allPresets = getAllImage2ImagePresets();
+  const presets: Record<string, ReturnType<typeof getImage2ImagePreset>> = {};
+  for (const model of data.models) {
+    presets[model] = allPresets[model] ?? getImage2ImagePreset(model);
+  }
+
+  return c.json({
+    ...data,
+    presets,
+  });
 });
 
-// Image-to-image transformation
+// Image-to-image transformation with preset support
 media.post("/image2image", async (c) => {
   const formData = await c.req.formData();
 
-  // Forward form data to AI API
+  // Get model from form data to apply preset
+  const model = formData.get("model")?.toString() ?? "";
+  const preset = getImage2ImagePreset(model);
+
+  // Apply preset defaults for unspecified parameters
+  if (!formData.has("strength") || formData.get("strength") === "") {
+    formData.set("strength", preset.strength.toString());
+  }
+  if (
+    !formData.has("num_inference_steps") ||
+    formData.get("num_inference_steps") === ""
+  ) {
+    formData.set("num_inference_steps", preset.num_inference_steps.toString());
+  }
+  if (
+    !formData.has("guidance_scale") ||
+    formData.get("guidance_scale") === ""
+  ) {
+    formData.set("guidance_scale", preset.guidance_scale.toString());
+  }
+
+  // Clear negative_prompt if model doesn't support it
+  if (!preset.supports_negative_prompt) {
+    formData.set("negative_prompt", "");
+  }
+
   const response = await fetch(`${AI_API_URL}/generate/image2image`, {
     method: "POST",
     body: formData,
@@ -138,11 +206,10 @@ media.post("/image2image", async (c) => {
   return c.json(data);
 });
 
-// Generate video (start task) - now returns Task from queue system
+// Generate video (start task)
 media.post("/video", async (c) => {
   const formData = await c.req.formData();
 
-  // Forward form data to AI API
   const response = await fetch(`${AI_API_URL}/generate/video`, {
     method: "POST",
     body: formData,
