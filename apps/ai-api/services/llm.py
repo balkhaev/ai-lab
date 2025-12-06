@@ -38,33 +38,150 @@ def extract_images_from_messages(messages: list[ChatMessage]) -> list[Image.Imag
     return images
 
 
-def format_chat_prompt(messages: list[ChatMessage], model_id: str) -> str:
-    """Format messages into ChatML format with vision support for Qwen-VL models"""
-    formatted = ""
-    is_vision_model = "VL" in model_id.upper() or "VISION" in model_id.upper()
+def _get_content_text(content, is_vision_model: bool = False) -> str:
+    """Extract text from message content (string or list of parts)"""
+    if isinstance(content, str):
+        return content
+    
+    text_parts = []
+    for part in content:
+        if isinstance(part, TextContent):
+            text_parts.append(part.text)
+        elif isinstance(part, ImageContent) and is_vision_model:
+            text_parts.append("<|vision_start|><|image_pad|><|vision_end|>")
+        elif isinstance(part, dict):
+            if part.get("type") == "text":
+                text_parts.append(part.get("text", ""))
+            elif part.get("type") == "image_url" and is_vision_model:
+                text_parts.append("<|vision_start|><|image_pad|><|vision_end|>")
+    
+    return "".join(text_parts)
 
+
+def _detect_prompt_format(model_id: str) -> str:
+    """Detect prompt format based on model ID"""
+    model_id_lower = model_id.lower()
+    
+    # Mistral-based models
+    if any(name in model_id_lower for name in ["mistral", "nemo", "marinara"]):
+        return "mistral"
+    
+    # LLaMA 2 style
+    if "llama-2" in model_id_lower or "llama2" in model_id_lower:
+        return "llama2"
+    
+    # Default to ChatML (Qwen, most modern models)
+    return "chatml"
+
+
+def format_chat_prompt(messages: list[ChatMessage], model_id: str, prompt_format: str | None = None) -> str:
+    """
+    Format messages into the appropriate prompt format.
+    
+    Args:
+        messages: List of chat messages
+        model_id: HuggingFace model ID
+        prompt_format: Optional explicit format ("chatml", "mistral", "llama2")
+                      If not provided, will be auto-detected from model_id
+    
+    Returns:
+        Formatted prompt string
+    """
+    if prompt_format is None:
+        prompt_format = _detect_prompt_format(model_id)
+    
+    is_vision_model = "VL" in model_id.upper() or "VISION" in model_id.upper()
+    
+    if prompt_format == "mistral":
+        return _format_mistral(messages, is_vision_model)
+    elif prompt_format == "llama2":
+        return _format_llama2(messages, is_vision_model)
+    else:  # chatml (default)
+        return _format_chatml(messages, is_vision_model)
+
+
+def _format_chatml(messages: list[ChatMessage], is_vision_model: bool) -> str:
+    """Format messages in ChatML format (Qwen, etc.)"""
+    formatted = ""
+    
     for msg in messages:
         formatted += f"<|im_start|>{msg.role}\n"
-
-        if isinstance(msg.content, str):
-            formatted += msg.content
-        elif isinstance(msg.content, list):
-            for part in msg.content:
-                if isinstance(part, TextContent):
-                    formatted += part.text
-                elif isinstance(part, ImageContent) and is_vision_model:
-                    # Add vision tokens for Qwen-VL
-                    formatted += "<|vision_start|><|image_pad|><|vision_end|>"
-                elif isinstance(part, dict):
-                    # Handle dict format (from JSON)
-                    if part.get("type") == "text":
-                        formatted += part.get("text", "")
-                    elif part.get("type") == "image_url" and is_vision_model:
-                        formatted += "<|vision_start|><|image_pad|><|vision_end|>"
-
+        formatted += _get_content_text(msg.content, is_vision_model)
         formatted += "<|im_end|>\n"
-
+    
     formatted += "<|im_start|>assistant\n"
+    return formatted
+
+
+def _format_mistral(messages: list[ChatMessage], is_vision_model: bool) -> str:
+    """
+    Format messages in Mistral Instruct format.
+    
+    Official format from MistralAI:
+    <s>[INST]{system}[/INST]{response}</s>[INST]{user's message}[/INST]
+    
+    The system prompt goes inside the first [INST] block.
+    """
+    formatted = "<s>"
+    system_prompt = ""
+    
+    # Extract system prompt if present
+    non_system_messages = []
+    for msg in messages:
+        if msg.role == "system":
+            system_prompt = _get_content_text(msg.content, is_vision_model)
+        else:
+            non_system_messages.append(msg)
+    
+    # Build conversation
+    is_first_user = True
+    for msg in non_system_messages:
+        content = _get_content_text(msg.content, is_vision_model)
+        
+        if msg.role == "user":
+            if is_first_user and system_prompt:
+                # Include system prompt in first user instruction
+                formatted += f"[INST]{system_prompt}\n\n{content}[/INST]"
+                is_first_user = False
+            else:
+                formatted += f"[INST]{content}[/INST]"
+        elif msg.role == "assistant":
+            formatted += f"{content}</s>"
+    
+    return formatted
+
+
+def _format_llama2(messages: list[ChatMessage], is_vision_model: bool) -> str:
+    """Format messages in LLaMA 2 chat format"""
+    formatted = "<s>"
+    system_prompt = ""
+    
+    # Extract system prompt if present
+    non_system_messages = []
+    for msg in messages:
+        if msg.role == "system":
+            system_prompt = _get_content_text(msg.content, is_vision_model)
+        else:
+            non_system_messages.append(msg)
+    
+    # Add system prompt
+    if system_prompt:
+        formatted += f"[INST] <<SYS>>\n{system_prompt}\n<</SYS>>\n\n"
+    
+    # Build conversation
+    for i, msg in enumerate(non_system_messages):
+        content = _get_content_text(msg.content, is_vision_model)
+        
+        if msg.role == "user":
+            if i == 0 and not system_prompt:
+                formatted += f"[INST] {content} [/INST]"
+            elif i == 0:
+                formatted += f"{content} [/INST]"
+            else:
+                formatted += f"[INST] {content} [/INST]"
+        elif msg.role == "assistant":
+            formatted += f" {content} </s>"
+    
     return formatted
 
 

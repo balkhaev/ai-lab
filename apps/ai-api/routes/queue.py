@@ -168,3 +168,4 @@ async def cancel_task_endpoint(task_id: str):
         updated_at=task.updated_at,
         user_id=task.user_id,
     )
+

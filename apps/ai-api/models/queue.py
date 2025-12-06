@@ -120,3 +120,4 @@ class TaskListResponse(BaseModel):
     """Response model for list of tasks"""
     tasks: list[TaskResponse]
     total: int
+

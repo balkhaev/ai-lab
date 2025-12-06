@@ -287,3 +287,4 @@ def unload_video_pipeline(pipe: object) -> float:
     
     logger.info(f"Video pipeline unloaded, freed ~{freed_memory:.0f}MB")
     return freed_memory
+

@@ -20,7 +20,7 @@ const AI_API_URL = process.env.AI_API_URL || "http://localhost:8000";
 const models = new Hono();
 
 // Schemas
-const modelTypeSchema = z.enum(["llm", "image", "video"]);
+const modelTypeSchema = z.enum(["llm", "image", "image2image", "video"]);
 
 const loadModelSchema = z.object({
   model_id: z.string().min(1),
@@ -31,6 +31,12 @@ const loadModelSchema = z.object({
 const unloadModelSchema = z.object({
   model_id: z.string().min(1),
   model_type: modelTypeSchema,
+});
+
+const downloadCacheSchema = z.object({
+  repo_id: z.string().min(1),
+  model_type: modelTypeSchema,
+  revision: z.string().optional(),
 });
 
 // Types
@@ -63,6 +69,37 @@ type UnloadModelResponse = {
   status: string;
   message: string;
   freed_memory_mb: number | null;
+};
+
+// Cache types
+type CachedModel = {
+  repo_id: string;
+  repo_type: string;
+  size_on_disk: number;
+  nb_files: number;
+  last_accessed: string | null;
+  last_modified: string | null;
+  revisions: string[];
+};
+
+type CacheListResponse = {
+  models: CachedModel[];
+  total_size_bytes: number;
+  cache_dir: string;
+};
+
+type DownloadModelResponse = {
+  repo_id: string;
+  status: string;
+  message: string;
+  size_bytes: number | null;
+};
+
+type DeleteCacheResponse = {
+  repo_id: string;
+  status: string;
+  message: string;
+  freed_bytes: number | null;
 };
 
 // Get all models with GPU memory info
@@ -166,6 +203,75 @@ models.get("/status/:modelId", async (c) => {
   }
 
   const data = await response.json();
+  return c.json(data);
+});
+
+// ==================== Cache Management ====================
+
+// Get all cached models on disk
+models.get("/cache", async (c) => {
+  const response = await fetch(`${AI_API_URL}/models/cache`);
+
+  if (!response.ok) {
+    const error = await response.text();
+    return c.json({ error: `Failed to fetch cache: ${error}` }, 500);
+  }
+
+  const data = (await response.json()) as CacheListResponse;
+  return c.json(data);
+});
+
+// Download a model to cache (without loading to GPU)
+models.post(
+  "/cache/download",
+  zValidator("json", downloadCacheSchema),
+  async (c) => {
+    const body = c.req.valid("json");
+
+    const response = await fetch(`${AI_API_URL}/models/cache/download`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const error = (await response
+        .json()
+        .catch(() => ({ detail: "Unknown error" }))) as { detail: string };
+      return c.json(
+        { error: error.detail || "Failed to download model" },
+        response.status as ContentfulStatusCode
+      );
+    }
+
+    const data = (await response.json()) as DownloadModelResponse;
+    return c.json(data);
+  }
+);
+
+// Delete a model from cache
+models.delete("/cache/:repoId{.+}", async (c) => {
+  // Use wildcard pattern to capture repo_id with slashes (e.g., "meta-llama/Llama-3.2-3B")
+  const repoId = c.req.param("repoId");
+
+  const response = await fetch(
+    `${AI_API_URL}/models/cache/${encodeURIComponent(repoId)}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  if (!response.ok) {
+    const error = (await response
+      .json()
+      .catch(() => ({ detail: "Unknown error" }))) as { detail: string };
+    return c.json(
+      { error: error.detail || "Failed to delete cached model" },
+      response.status as ContentfulStatusCode
+    );
+  }
+
+  const data = (await response.json()) as DeleteCacheResponse;
   return c.json(data);
 });
 

@@ -1,6 +1,7 @@
 """
 Model management endpoints - dynamic loading and unloading
 """
+import asyncio
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -14,8 +15,13 @@ from models.management import (
     UnloadModelRequest,
     UnloadModelResponse,
     ModelsListResponse,
+    CacheListResponse,
+    DownloadModelRequest,
+    DownloadModelResponse,
+    DeleteCacheResponse,
 )
 from services.orchestrator import orchestrator
+from services import cache as cache_service
 
 logger = logging.getLogger(__name__)
 
@@ -238,4 +244,94 @@ async def get_model_status(model_id: str):
     raise HTTPException(
         status_code=404,
         detail=f"Model {model_id} not found or not tracked"
+    )
+
+
+# ==================== Cache Management Endpoints ====================
+
+
+@router.get(
+    "/cache",
+    response_model=CacheListResponse,
+    summary="List cached models",
+    description="Get list of all models downloaded to disk cache (HuggingFace hub cache)",
+)
+async def list_cached_models():
+    """List all models in the HuggingFace cache"""
+    loop = asyncio.get_event_loop()
+    models, total_size, cache_dir = await loop.run_in_executor(
+        None, cache_service.scan_cache
+    )
+    
+    return CacheListResponse(
+        models=models,
+        total_size_bytes=total_size,
+        cache_dir=cache_dir,
+    )
+
+
+@router.post(
+    "/cache/download",
+    response_model=DownloadModelResponse,
+    summary="Download model to cache",
+    description="""
+Download a model from HuggingFace to disk cache without loading it into GPU memory.
+
+This is useful for pre-downloading models to avoid download time during load operations.
+    """,
+)
+async def download_model_to_cache(request: DownloadModelRequest):
+    """Download a model to cache without loading"""
+    logger.info(f"Request to download model to cache: {request.repo_id}")
+    
+    try:
+        loop = asyncio.get_event_loop()
+        local_path, size = await loop.run_in_executor(
+            None,
+            cache_service.download_model,
+            request.repo_id,
+            request.model_type,
+            request.revision,
+        )
+        
+        return DownloadModelResponse(
+            repo_id=request.repo_id,
+            status="completed",
+            message=f"Model downloaded to {local_path}",
+            size_bytes=size,
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to download model {request.repo_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete(
+    "/cache/{repo_id:path}",
+    response_model=DeleteCacheResponse,
+    summary="Delete cached model",
+    description="Delete a model from the disk cache to free up space",
+)
+async def delete_cached_model(repo_id: str):
+    """Delete a model from cache"""
+    logger.info(f"Request to delete cached model: {repo_id}")
+    
+    loop = asyncio.get_event_loop()
+    success, freed_bytes = await loop.run_in_executor(
+        None, cache_service.delete_model, repo_id
+    )
+    
+    if not success:
+        return DeleteCacheResponse(
+            repo_id=repo_id,
+            status="not_found",
+            message=f"Model {repo_id} not found in cache",
+            freed_bytes=None,
+        )
+    
+    return DeleteCacheResponse(
+        repo_id=repo_id,
+        status="deleted",
+        message=f"Model {repo_id} deleted from cache",
+        freed_bytes=freed_bytes,
     )

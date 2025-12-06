@@ -13,12 +13,12 @@ logger = logging.getLogger(__name__)
 
 # Memory estimates for image models (in MB)
 IMAGE_MEMORY_ESTIMATES = {
-    "sd15": 4_000,      # ~4GB for SD 1.5
-    "sd21": 5_000,      # ~5GB for SD 2.1
-    "sdxl": 6_500,      # ~6.5GB for SDXL
-    "z-image": 5_000,   # ~5GB for Z-Image
-    "flux": 12_000,     # ~12GB for Flux
-    "default": 6_000,   # Default estimate
+    "sd15": 4_000,       # ~4GB for SD 1.5
+    "sd21": 5_000,       # ~5GB for SD 2.1
+    "sdxl": 7_000,       # ~7GB for SDXL
+    "z-image": 14_000,   # ~14GB for Z-Image-Turbo (8B model)
+    "flux": 16_000,      # ~16GB for Flux
+    "default": 8_000,    # Default estimate
 }
 
 
@@ -177,3 +177,4 @@ def unload_image_pipeline(pipe: object) -> float:
     
     logger.info(f"Image pipeline unloaded, freed ~{freed_memory:.0f}MB")
     return freed_memory
+

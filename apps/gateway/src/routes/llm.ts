@@ -2,6 +2,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { z } from "zod";
+import { getAllLLMPresets, getLLMPreset } from "../presets";
 
 const AI_API_URL = process.env.AI_API_URL || "http://localhost:8000";
 
@@ -90,6 +91,12 @@ type AIApiResponse = {
   eval_count?: number;
 };
 
+// Get LLM presets
+llm.get("/presets", (c) => {
+  const presets = getAllLLMPresets();
+  return c.json({ presets });
+});
+
 // Get available models
 llm.get("/models", async (c) => {
   const response = await fetch(`${AI_API_URL}/api/tags`);
@@ -102,28 +109,38 @@ llm.get("/models", async (c) => {
     models: Array<{ name: string; size: number; modified_at: string }>;
   };
 
-  return c.json({
-    models: data.models.map((m) => ({
+  // Enrich models with preset info
+  const presets = getAllLLMPresets();
+  const models = data.models.map((m) => {
+    const preset = getLLMPreset(m.name);
+    return {
       name: m.name,
       size: m.size,
       modified_at: m.modified_at,
-    })),
+      preset: preset.model_id !== "default" ? preset : null,
+    };
   });
+
+  return c.json({ models, presets });
 });
 
 // Chat with single model (streaming)
 llm.post("/chat", zValidator("json", chatSchema), async (c) => {
   const body = c.req.valid("json");
 
-  // Map options to top-level params for ai-api
+  // Get preset for the model
+  const preset = getLLMPreset(body.model);
+
+  // Map options to top-level params for ai-api, applying preset defaults
   const aiApiPayload = {
     model: body.model,
     messages: body.messages,
     stream: body.stream,
-    temperature: body.options?.temperature ?? 0.7,
-    top_p: body.options?.top_p ?? 0.95,
-    top_k: body.options?.top_k ?? 40,
-    max_tokens: body.options?.max_tokens ?? 2048,
+    temperature: body.options?.temperature ?? preset.temperature,
+    top_p: body.options?.top_p ?? preset.top_p,
+    top_k: body.options?.top_k ?? preset.top_k,
+    max_tokens: body.options?.max_tokens ?? preset.max_tokens,
+    prompt_format: preset.prompt_format,
   };
 
   if (body.stream) {

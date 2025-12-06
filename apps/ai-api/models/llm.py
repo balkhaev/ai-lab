@@ -37,6 +37,7 @@ class ChatRequest(BaseModel):
     top_p: float = Field(default=0.95, ge=0, le=1, description="Top-p sampling")
     top_k: int = Field(default=40, ge=1, description="Top-k sampling")
     max_tokens: int = Field(default=2048, ge=1, le=8192, description="Maximum tokens to generate")
+    prompt_format: str | None = Field(default=None, description="Prompt format: chatml, mistral, llama2. Auto-detected if not provided.")
 
 
 class CompareRequest(BaseModel):
@@ -47,3 +48,4 @@ class CompareRequest(BaseModel):
     top_p: float = Field(default=0.95, ge=0, le=1, description="Top-p sampling")
     top_k: int = Field(default=40, ge=1, description="Top-k sampling")
     max_tokens: int = Field(default=2048, ge=1, le=8192, description="Maximum tokens to generate")
+    prompt_format: str | None = Field(default=None, description="Prompt format: chatml, mistral, llama2. Auto-detected if not provided.")

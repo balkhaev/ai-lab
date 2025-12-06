@@ -595,6 +595,92 @@ export async function switchModel(
   return response.json();
 }
 
+// Cache Management API
+export type CachedModel = {
+  repo_id: string;
+  repo_type: string;
+  size_on_disk: number;
+  nb_files: number;
+  last_accessed: string | null;
+  last_modified: string | null;
+  revisions: string[];
+};
+
+export type CacheListResponse = {
+  models: CachedModel[];
+  total_size_bytes: number;
+  cache_dir: string;
+};
+
+export type DownloadModelRequest = {
+  repo_id: string;
+  model_type: ModelType;
+  revision?: string;
+};
+
+export type DownloadModelResponse = {
+  repo_id: string;
+  status: string;
+  message: string;
+  size_bytes: number | null;
+};
+
+export type DeleteCacheResponse = {
+  repo_id: string;
+  status: string;
+  message: string;
+  freed_bytes: number | null;
+};
+
+export async function getCachedModels(): Promise<CacheListResponse> {
+  const response = await fetch(`${API_URL}/api/models/cache`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch cached models");
+  }
+
+  return response.json();
+}
+
+export async function downloadModelToCache(
+  request: DownloadModelRequest
+): Promise<DownloadModelResponse> {
+  const response = await fetch(`${API_URL}/api/models/cache/download`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to download model");
+  }
+
+  return response.json();
+}
+
+export async function deleteCachedModel(
+  repoId: string
+): Promise<DeleteCacheResponse> {
+  const response = await fetch(
+    `${API_URL}/api/models/cache/${encodeURIComponent(repoId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to delete cached model");
+  }
+
+  return response.json();
+}
+
 // Task Queue API
 export type TaskType = "video" | "image" | "image2image" | "llm_compare";
 export type TaskStatus =

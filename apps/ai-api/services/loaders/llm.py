@@ -196,3 +196,4 @@ def _get_gpu_used_mb() -> float:
     except ImportError:
         # Fallback - but this won't see vLLM subprocess memory
         return torch.cuda.memory_reserved(0) / (1024 * 1024)
+

@@ -1,9 +1,96 @@
 /**
- * Model presets - optimal configurations for each image generation model.
+ * Model presets - optimal configurations for each model.
  *
  * Gateway manages presets and applies them before sending requests to ai-api.
  * ai-api is a stateless service that accepts all parameters explicitly.
  */
+
+// ============== LLM Types ==============
+
+export type LLMPromptFormat = "chatml" | "mistral" | "llama2" | "alpaca";
+
+export type LLMPreset = {
+  model_id: string;
+  name: string;
+  description: string;
+  // Prompt format
+  prompt_format: LLMPromptFormat;
+  // Generation parameters
+  temperature: number;
+  top_p: number;
+  top_k: number;
+  max_tokens: number;
+  // UI hints
+  min_temperature: number;
+  max_temperature: number;
+  supports_system_prompt: boolean;
+  supports_vision: boolean;
+};
+
+// ============== LLM Presets ==============
+
+export const LLM_PRESETS: Record<string, LLMPreset> = {
+  "MarinaraSpaghetti/NemoMix-Unleashed-12B": {
+    model_id: "MarinaraSpaghetti/NemoMix-Unleashed-12B",
+    name: "NemoMix Unleashed 12B",
+    description:
+      "Mistral Nemo 12B мерж для RP и сторителлинга. Температура 1.0-1.25.",
+    prompt_format: "mistral",
+    temperature: 1.0,
+    top_p: 0.95,
+    top_k: 40,
+    max_tokens: 4096,
+    min_temperature: 0.5,
+    max_temperature: 2.0,
+    supports_system_prompt: true,
+    supports_vision: false,
+  },
+  "Qwen/Qwen2.5-7B-Instruct": {
+    model_id: "Qwen/Qwen2.5-7B-Instruct",
+    name: "Qwen 2.5 7B",
+    description: "Быстрая универсальная модель от Alibaba. ChatML формат.",
+    prompt_format: "chatml",
+    temperature: 0.7,
+    top_p: 0.95,
+    top_k: 40,
+    max_tokens: 4096,
+    min_temperature: 0.0,
+    max_temperature: 2.0,
+    supports_system_prompt: true,
+    supports_vision: false,
+  },
+  "Qwen/Qwen2-VL-7B-Instruct": {
+    model_id: "Qwen/Qwen2-VL-7B-Instruct",
+    name: "Qwen 2 VL 7B",
+    description: "Vision-Language модель. Понимает изображения.",
+    prompt_format: "chatml",
+    temperature: 0.7,
+    top_p: 0.95,
+    top_k: 40,
+    max_tokens: 4096,
+    min_temperature: 0.0,
+    max_temperature: 2.0,
+    supports_system_prompt: true,
+    supports_vision: true,
+  },
+};
+
+export const DEFAULT_LLM_PRESET: LLMPreset = {
+  model_id: "default",
+  name: "Default",
+  description: "Стандартные настройки для неизвестных моделей.",
+  prompt_format: "chatml",
+  temperature: 0.7,
+  top_p: 0.95,
+  top_k: 40,
+  max_tokens: 2048,
+  min_temperature: 0.0,
+  max_temperature: 2.0,
+  supports_system_prompt: true,
+  supports_vision: false,
+};
+
+// ============== Image Types ==============
 
 export type ImagePreset = {
   model_id: string;
@@ -176,4 +263,27 @@ export function getAllImagePresets(): Record<string, ImagePreset> {
 
 export function getAllImage2ImagePresets(): Record<string, Image2ImagePreset> {
   return { ...IMAGE2IMAGE_PRESETS };
+}
+
+// ============== LLM Helper Functions ==============
+
+export function getLLMPreset(modelId: string): LLMPreset {
+  // Try exact match first
+  if (LLM_PRESETS[modelId]) {
+    return LLM_PRESETS[modelId];
+  }
+
+  // Try matching by short name (e.g., "NemoMix-Unleashed-12B")
+  const shortName = modelId.split("/").pop() || modelId;
+  for (const [key, preset] of Object.entries(LLM_PRESETS)) {
+    if (key.endsWith(shortName) || key.includes(shortName)) {
+      return preset;
+    }
+  }
+
+  return DEFAULT_LLM_PRESET;
+}
+
+export function getAllLLMPresets(): Record<string, LLMPreset> {
+  return { ...LLM_PRESETS };
 }

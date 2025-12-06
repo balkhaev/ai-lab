@@ -33,3 +33,4 @@ __all__ = [
     "VideoModelFamily",
     "estimate_video_memory",
 ]
+

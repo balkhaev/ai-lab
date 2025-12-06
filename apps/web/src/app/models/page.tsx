@@ -5,8 +5,11 @@ import {
   AlertCircle,
   Box,
   Check,
+  Clock,
   Cpu,
+  Database,
   Download,
+  FileBox,
   HardDrive,
   ImageIcon,
   Loader2,
@@ -15,6 +18,7 @@ import {
   Power,
   PowerOff,
   RefreshCw,
+  Trash2,
   Video,
   Zap,
 } from "lucide-react";
@@ -48,6 +52,10 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  type CachedModel,
+  deleteCachedModel,
+  downloadModelToCache,
+  getCachedModels,
   getModelsList,
   loadModel,
   type ModelInfo,
@@ -200,6 +208,19 @@ function formatBytes(mb: number | null): string {
   return `${mb.toFixed(0)} MB`;
 }
 
+function formatBytesFromBytes(bytes: number): string {
+  if (bytes >= 1024 ** 3) {
+    return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  }
+  if (bytes >= 1024 ** 2) {
+    return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(0)} KB`;
+  }
+  return `${bytes} B`;
+}
+
 function formatDate(isoString: string | null): string {
   if (!isoString) {
     return "N/A";
@@ -210,6 +231,32 @@ function formatDate(isoString: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatRelativeTime(isoString: string | null): string {
+  if (!isoString) {
+    return "N/A";
+  }
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMs / 3_600_000);
+  const diffDays = Math.floor(diffMs / 86_400_000);
+
+  if (diffMins < 1) {
+    return "только что";
+  }
+  if (diffMins < 60) {
+    return `${diffMins} мин. назад`;
+  }
+  if (diffHours < 24) {
+    return `${diffHours} ч. назад`;
+  }
+  if (diffDays < 30) {
+    return `${diffDays} дн. назад`;
+  }
+  return formatDate(isoString);
 }
 
 function ModelCard({
@@ -422,23 +469,145 @@ function DiskUsageCard({
   );
 }
 
+function CachedModelCard({
+  model,
+  onDelete,
+  onLoadToGpu,
+  isDeleting,
+  isLoadingToGpu,
+}: {
+  model: CachedModel;
+  onDelete: () => void;
+  onLoadToGpu: () => void;
+  isDeleting: boolean;
+  isLoadingToGpu: boolean;
+}) {
+  const modelName = model.repo_id.split("/").pop() || model.repo_id;
+
+  return (
+    <Card className="group relative overflow-hidden transition-all duration-300 hover:border-primary/30">
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
+              <FileBox className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate font-semibold">{modelName}</h3>
+              <p className="truncate text-muted-foreground text-xs">
+                {model.repo_id}
+              </p>
+            </div>
+          </div>
+
+          <Badge className="shrink-0 font-mono text-xs" variant="secondary">
+            {formatBytesFromBytes(model.size_on_disk)}
+          </Badge>
+        </div>
+
+        {/* Model details */}
+        <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-xs">
+          <span className="flex items-center gap-1">
+            <Database className="h-3 w-3" />
+            {model.nb_files} файлов
+          </span>
+          {model.last_accessed ? (
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {formatRelativeTime(model.last_accessed)}
+            </span>
+          ) : null}
+          {model.revisions.length > 0 ? (
+            <span className="flex items-center gap-1">
+              <Box className="h-3 w-3" />
+              {model.revisions.length} ревиз.
+            </span>
+          ) : null}
+        </div>
+
+        {/* Actions */}
+        <div className="mt-4 flex gap-2">
+          <Button
+            className="flex-1"
+            disabled={isLoadingToGpu || isDeleting}
+            onClick={onLoadToGpu}
+            size="sm"
+            variant="outline"
+          >
+            {isLoadingToGpu ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Загрузка...
+              </>
+            ) : (
+              <>
+                <Zap className="mr-2 h-4 w-4" />В GPU
+              </>
+            )}
+          </Button>
+          <Button
+            className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
+            disabled={isDeleting || isLoadingToGpu}
+            onClick={onDelete}
+            size="sm"
+            variant="outline"
+          >
+            {isDeleting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ModelsPage() {
   const queryClient = useQueryClient();
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [newModelId, setNewModelId] = useState("");
   const [newModelType, setNewModelType] = useState<ModelType>("llm");
   const [unloadingModelId, setUnloadingModelId] = useState<string | null>(null);
+  const [deletingModelId, setDeletingModelId] = useState<string | null>(null);
+  const [loadingToGpuModelId, setLoadingToGpuModelId] = useState<string | null>(
+    null
+  );
 
+  // GPU models query
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ["models"],
     queryFn: getModelsList,
-    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    refetchInterval: 5000,
+  });
+
+  // Cached models query
+  const {
+    data: cacheData,
+    isLoading: isCacheLoading,
+    error: cacheError,
+    refetch: refetchCache,
+    isRefetching: isCacheRefetching,
+  } = useQuery({
+    queryKey: ["cachedModels"],
+    queryFn: getCachedModels,
+    refetchInterval: 30_000, // Less frequent - cache changes less often
   });
 
   const loadMutation = useMutation({
     mutationFn: loadModel,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["models"] });
+      setLoadDialogOpen(false);
+      setNewModelId("");
+    },
+  });
+
+  const downloadMutation = useMutation({
+    mutationFn: downloadModelToCache,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cachedModels"] });
       setLoadDialogOpen(false);
       setNewModelId("");
     },
@@ -455,12 +624,33 @@ export default function ModelsPage() {
     },
   });
 
+  const deleteCacheMutation = useMutation({
+    mutationFn: deleteCachedModel,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cachedModels"] });
+      setDeletingModelId(null);
+    },
+    onError: () => {
+      setDeletingModelId(null);
+    },
+  });
+
   const handleLoad = () => {
     if (!newModelId.trim()) {
       return;
     }
     loadMutation.mutate({
       model_id: newModelId.trim(),
+      model_type: newModelType,
+    });
+  };
+
+  const handleDownloadOnly = () => {
+    if (!newModelId.trim()) {
+      return;
+    }
+    downloadMutation.mutate({
+      repo_id: newModelId.trim(),
       model_type: newModelType,
     });
   };
@@ -473,6 +663,28 @@ export default function ModelsPage() {
     });
   };
 
+  const handleDeleteCached = (repoId: string) => {
+    setDeletingModelId(repoId);
+    deleteCacheMutation.mutate(repoId);
+  };
+
+  const handleLoadCachedToGpu = (model: CachedModel) => {
+    setLoadingToGpuModelId(model.repo_id);
+    // Try to infer model type from repo_id or default to llm
+    const modelType = inferModelType(model.repo_id);
+    loadMutation.mutate(
+      {
+        model_id: model.repo_id,
+        model_type: modelType,
+      },
+      {
+        onSettled: () => {
+          setLoadingToGpuModelId(null);
+        },
+      }
+    );
+  };
+
   const handlePresetSelect = (preset: (typeof PRESET_MODELS)[0]) => {
     setNewModelId(preset.id);
     setNewModelType(preset.type);
@@ -483,6 +695,29 @@ export default function ModelsPage() {
     data?.models.filter(
       (m) => m.status !== "loaded" && m.status !== "not_loaded"
     ) || [];
+  const cachedModels = cacheData?.models || [];
+
+  // Helper to infer model type from repo_id
+  function inferModelType(repoId: string): ModelType {
+    const lowerRepoId = repoId.toLowerCase();
+    if (
+      lowerRepoId.includes("video") ||
+      lowerRepoId.includes("wan") ||
+      lowerRepoId.includes("ltx") ||
+      lowerRepoId.includes("cog")
+    ) {
+      return "video";
+    }
+    if (
+      lowerRepoId.includes("sdxl") ||
+      lowerRepoId.includes("stable-diffusion") ||
+      lowerRepoId.includes("z-image") ||
+      lowerRepoId.includes("flux")
+    ) {
+      return "image";
+    }
+    return "llm";
+  }
 
   return (
     <div className="container max-w-6xl p-6">
@@ -615,25 +850,133 @@ export default function ModelsPage() {
             </div>
           )}
 
-          {/* Empty state */}
+          {/* Empty state for GPU models */}
           {loadedModels.length === 0 && otherModels.length === 0 && (
             <Card className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="mb-4 rounded-full bg-secondary p-4">
-                  <HardDrive className="h-8 w-8 text-muted-foreground" />
+                  <MemoryStick className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <h3 className="mb-2 font-medium">Нет загруженных моделей</h3>
                 <p className="mb-4 max-w-sm text-muted-foreground text-sm">
-                  Загрузите модель, чтобы начать генерацию. Модели можно
-                  выгружать для освобождения GPU памяти.
+                  Загрузите модель в GPU, чтобы начать генерацию.
                 </p>
                 <Button onClick={() => setLoadDialogOpen(true)} variant="neon">
                   <Plus className="mr-2 h-4 w-4" />
-                  Загрузить первую модель
+                  Загрузить модель
                 </Button>
               </CardContent>
             </Card>
           )}
+
+          {/* Cached models section */}
+          <div className="mt-8 border-t pt-8">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 font-semibold text-lg">
+                <HardDrive className="h-5 w-5 text-blue-500" />
+                Модели на диске
+                {cachedModels.length > 0 && (
+                  <Badge variant="secondary">{cachedModels.length}</Badge>
+                )}
+                {cacheData && (
+                  <span className="ml-2 font-mono text-muted-foreground text-sm">
+                    ({formatBytesFromBytes(cacheData.total_size_bytes)})
+                  </span>
+                )}
+              </h2>
+              <Button
+                disabled={isCacheRefetching}
+                onClick={() => refetchCache()}
+                size="sm"
+                variant="ghost"
+              >
+                <RefreshCw
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    isCacheRefetching ? "animate-spin" : ""
+                  )}
+                />
+                Обновить
+              </Button>
+            </div>
+
+            {/* Cache loading state */}
+            {isCacheLoading ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="pt-6">
+                      <div className="flex items-start gap-3">
+                        <Skeleton className="h-10 w-10 rounded-lg" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-5 w-3/4" />
+                          <Skeleton className="h-3 w-full" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : null}
+
+            {/* Cache error state */}
+            {cacheError ? (
+              <Card className="border-red-500/30 bg-red-500/5">
+                <CardContent className="flex items-center gap-3 py-4">
+                  <AlertCircle className="h-5 w-5 text-red-500" />
+                  <div>
+                    <p className="font-medium text-red-500">
+                      Ошибка загрузки кэша
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      {cacheError instanceof Error
+                        ? cacheError.message
+                        : "Не удалось получить список кэшированных моделей"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {/* Cached models grid */}
+            {cacheData && cachedModels.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {cachedModels.map((model) => (
+                  <CachedModelCard
+                    isDeleting={deletingModelId === model.repo_id}
+                    isLoadingToGpu={loadingToGpuModelId === model.repo_id}
+                    key={model.repo_id}
+                    model={model}
+                    onDelete={() => handleDeleteCached(model.repo_id)}
+                    onLoadToGpu={() => handleLoadCachedToGpu(model)}
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            {/* Empty cache state */}
+            {cacheData && cachedModels.length === 0 && !isCacheLoading && (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="mb-4 rounded-full bg-secondary p-4">
+                    <HardDrive className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="mb-2 font-medium">Кэш пуст</h3>
+                  <p className="mb-4 max-w-sm text-muted-foreground text-sm">
+                    Скачайте модели на диск для быстрой последующей загрузки в
+                    GPU.
+                  </p>
+                  <Button
+                    onClick={() => setLoadDialogOpen(true)}
+                    variant="outline"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Скачать модель
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       ) : null}
 
@@ -722,12 +1065,37 @@ export default function ModelsPage() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button onClick={() => setLoadDialogOpen(false)} variant="outline">
               Отмена
             </Button>
             <Button
-              disabled={!newModelId.trim() || loadMutation.isPending}
+              disabled={
+                !newModelId.trim() ||
+                downloadMutation.isPending ||
+                loadMutation.isPending
+              }
+              onClick={handleDownloadOnly}
+              variant="outline"
+            >
+              {downloadMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Скачивание...
+                </>
+              ) : (
+                <>
+                  <HardDrive className="mr-2 h-4 w-4" />
+                  Только на диск
+                </>
+              )}
+            </Button>
+            <Button
+              disabled={
+                !newModelId.trim() ||
+                loadMutation.isPending ||
+                downloadMutation.isPending
+              }
               onClick={handleLoad}
               variant="neon"
             >
@@ -738,18 +1106,18 @@ export default function ModelsPage() {
                 </>
               ) : (
                 <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Загрузить
+                  <Zap className="mr-2 h-4 w-4" />
+                  Загрузить в GPU
                 </>
               )}
             </Button>
           </DialogFooter>
 
           {/* Error */}
-          {loadMutation.error ? (
+          {loadMutation.error || downloadMutation.error ? (
             <div className="mt-2 rounded-md bg-red-500/10 p-3 text-red-500 text-sm">
-              {loadMutation.error instanceof Error
-                ? loadMutation.error.message
+              {(loadMutation.error || downloadMutation.error) instanceof Error
+                ? (loadMutation.error || downloadMutation.error)?.message
                 : "Ошибка загрузки модели"}
             </div>
           ) : null}

@@ -70,7 +70,7 @@ async def chat(request: ChatRequest):
     if not engine:
         raise HTTPException(status_code=404, detail=f"Model {request.model} not found")
 
-    prompt = format_chat_prompt(request.messages, model_id)
+    prompt = format_chat_prompt(request.messages, model_id, request.prompt_format)
 
     # Extract images from messages for vision models
     images = extract_images_from_messages(request.messages)
@@ -160,7 +160,7 @@ async def compare_models(
     async def generate_comparison():
         start_time = time.time()
 
-        prompt = format_chat_prompt(request.messages, "")
+        prompt = format_chat_prompt(request.messages, "", request.prompt_format)
 
         sampling_params = SamplingParams(
             temperature=request.temperature,
