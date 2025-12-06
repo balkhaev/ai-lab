@@ -12,12 +12,15 @@ except RuntimeError:
     pass  # Already set
 
 import logging
+import logging.config
+import time
 from contextlib import asynccontextmanager
 
 import torch
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import MODEL_IDS, REDIS_URL
 from models.management import ModelType
@@ -27,20 +30,59 @@ from services.worker import start_worker, stop_worker
 from routes import health_router, llm_router, media_router, models_router, queue_router
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+LOG_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "default": {
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+        },
+    },
+    "loggers": {
+        "": {"handlers": ["default"], "level": "INFO"},
+        "uvicorn.access": {"handlers": ["default"], "level": "ERROR", "propagate": False},
+    },
+}
+
+logging.config.dictConfig(LOG_CONFIG)
 logger = logging.getLogger("ai-api")
 
-# Disable uvicorn access logs (only errors and 500s)
-logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
+
+class ErrorLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware that logs only errors (status >= 500)"""
+    
+    async def dispatch(self, request: Request, call_next):
+        start_time = time.time()
+        response = await call_next(request)
+        process_time = time.time() - start_time
+        
+        # Log only server errors (5xx)
+        if response.status_code >= 500:
+            logger.error(
+                f'{request.client.host}:{request.client.port} - '
+                f'"{request.method} {request.url.path}" {response.status_code} '
+                f'({process_time:.3f}s)'
+            )
+        
+        return response
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan - load models on startup, cleanup on shutdown"""
+    # Disable uvicorn access logs completely (for CLI startup)
+    uvicorn_access = logging.getLogger("uvicorn.access")
+    uvicorn_access.handlers = []
+    uvicorn_access.propagate = False
+    
     logger.info("=" * 60)
     logger.info("AI API starting up...")
     logger.info("=" * 60)
@@ -159,6 +201,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add error logging middleware (logs only 5xx errors)
+app.add_middleware(ErrorLoggingMiddleware)
+
 
 # Custom ReDoc endpoint with stable CDN version
 @app.get("/redoc", include_in_schema=False)
@@ -179,4 +224,4 @@ app.include_router(queue_router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_config=LOG_CONFIG)
