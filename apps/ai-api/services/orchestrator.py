@@ -158,27 +158,58 @@ class ModelOrchestrator:
     
     # ==================== Memory Management ====================
     
-    async def _ensure_memory_available_internal(self, required_mb: float, exclude_model_id: str | None = None) -> None:
+    async def _ensure_memory_available_internal(
+        self, 
+        required_mb: float, 
+        exclude_model_id: str | None = None,
+        target_type: "ModelType | None" = None
+    ) -> None:
         """
-        Ensure enough GPU memory is available by unloading LRU models.
+        Ensure enough GPU memory is available by unloading models.
         Internal method - must be called with lock already held.
+        
+        Strategy:
+        - If loading IMAGE/VIDEO, ALWAYS unload all LLM models first (vLLM subprocess memory
+          is not visible to pynvml/torch, so we can't rely on memory readings)
+        - If loading LLM, unload IMAGE/VIDEO models first
+        - Then use LRU for remaining models if still not enough memory
         
         Args:
             required_mb: Required memory in MB
-            exclude_model_id: Model ID to exclude from unloading (e.g., the model being loaded)
+            exclude_model_id: Model ID to exclude from unloading
+            target_type: Type of model being loaded (for smart unloading)
         """
         gpu = self.get_gpu_status()
-        
         logger.info(f"Memory check: {gpu.free_mb:.0f}MB free, {required_mb:.0f}MB required, {len(self._models)} models loaded")
+        logger.info(f"Loaded models: {[(m.model_id, m.model_type.value) for m in self._models.values()]}")
+        
+        # Strategy: If loading IMAGE/VIDEO, always unload LLM first
+        # (vLLM runs in subprocess, pynvml can't see its memory accurately)
+        if target_type in (ModelType.IMAGE, ModelType.IMAGE2IMAGE, ModelType.VIDEO):
+            llm_models = [m for m in self._models.values() if m.model_type == ModelType.LLM]
+            for model in llm_models:
+                logger.info(f"Unloading LLM model {model.model_id} to free memory for {target_type.value}")
+                await self._unload_internal(model.model_id)
+        
+        # Strategy: If loading LLM, unload media models first
+        elif target_type == ModelType.LLM:
+            media_types = (ModelType.IMAGE, ModelType.IMAGE2IMAGE, ModelType.VIDEO)
+            media_models = [m for m in self._models.values() if m.model_type in media_types]
+            for model in media_models:
+                logger.info(f"Unloading media model {model.model_id} to free memory for LLM")
+                await self._unload_internal(model.model_id)
+        
+        # Re-check memory after type-based unloading
+        gpu = self.get_gpu_status()
+        logger.info(f"After type-based unload: {gpu.free_mb:.0f}MB free")
         
         if gpu.free_mb >= required_mb:
             logger.info(f"Memory available: {gpu.free_mb:.0f}MB free >= {required_mb:.0f}MB required")
             return
         
-        logger.info(f"Need to free memory: {gpu.free_mb:.0f}MB free < {required_mb:.0f}MB required")
-        logger.info(f"Loaded models: {list(self._models.keys())}")
+        logger.info(f"Need more memory: {gpu.free_mb:.0f}MB free < {required_mb:.0f}MB required")
         
-        # Sort by last used time (LRU - least recently used first)
+        # LRU unloading for remaining models
         candidates = sorted(
             [m for m in self._models.values() if m.model_id != exclude_model_id],
             key=lambda m: m.last_used
@@ -189,7 +220,6 @@ class ModelOrchestrator:
                 break
             
             logger.info(f"Unloading LRU model: {model.model_id} (last used: {model.last_used})")
-            # Use internal method to avoid deadlock (lock already held)
             await self._unload_internal(model.model_id)
             gpu = self.get_gpu_status()
         
@@ -198,17 +228,23 @@ class ModelOrchestrator:
                 f"Could not free enough memory. Available: {gpu.free_mb:.0f}MB, required: {required_mb:.0f}MB"
             )
     
-    async def ensure_memory_available(self, required_mb: float, exclude_model_id: str | None = None) -> None:
+    async def ensure_memory_available(
+        self, 
+        required_mb: float, 
+        exclude_model_id: str | None = None,
+        target_type: "ModelType | None" = None
+    ) -> None:
         """
-        Ensure enough GPU memory is available by unloading LRU models.
+        Ensure enough GPU memory is available by unloading models.
         Public method that acquires lock.
         
         Args:
             required_mb: Required memory in MB
             exclude_model_id: Model ID to exclude from unloading
+            target_type: Type of model being loaded (for smart unloading)
         """
         async with self._lock:
-            await self._ensure_memory_available_internal(required_mb, exclude_model_id)
+            await self._ensure_memory_available_internal(required_mb, exclude_model_id, target_type)
     
     # ==================== Load/Unload ====================
     
@@ -247,7 +283,11 @@ class ModelOrchestrator:
                 # Estimate memory and ensure it's available
                 memory_estimate = self._estimate_memory(model_id, model_type)
                 # Use internal method since we already hold the lock
-                await self._ensure_memory_available_internal(memory_estimate, exclude_model_id=model_id)
+                await self._ensure_memory_available_internal(
+                    memory_estimate, 
+                    exclude_model_id=model_id,
+                    target_type=model_type
+                )
                 
                 # Load based on type
                 instance, actual_memory, metadata = await self._load_model(model_id, model_type)
