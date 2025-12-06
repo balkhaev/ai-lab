@@ -21,6 +21,7 @@ huggingface-hub>=0.26.0
 hf_transfer
 pillow>=10.0.0
 imageio[ffmpeg]
+nvidia-ml-py>=12.0.0  # GPU memory monitoring (includes vLLM subprocess memory)
 
 # Redis for task queue
 redis>=5.0.0
