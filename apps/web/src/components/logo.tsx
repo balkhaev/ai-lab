@@ -26,7 +26,7 @@ export function Logo({
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      <div className={cn("relative", animated && "animate-float")}>
+      <div className={cn("relative", animated ? "animate-float" : "")}>
         {/* Glow effect layer */}
         <div
           className="absolute inset-0 opacity-60 blur-lg"
@@ -169,17 +169,17 @@ export function Logo({
         </svg>
       </div>
 
-      {showText && (
+      {showText ? (
         <span
           className={cn(
             "gradient-neon-text font-bold tracking-tight",
             text,
-            animated && "animate-neon-flicker"
+            animated ? "animate-neon-flicker" : ""
           )}
         >
           ai-lab
         </span>
-      )}
+      ) : null}
     </div>
   );
 }

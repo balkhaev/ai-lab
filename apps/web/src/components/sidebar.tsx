@@ -61,9 +61,9 @@ export function Sidebar() {
               key={href}
             >
               {/* Active indicator */}
-              {isActive && (
+              {isActive ? (
                 <div className="-translate-y-1/2 absolute top-1/2 left-0 h-6 w-1 rounded-r-full bg-primary shadow-[0_0_10px_rgba(255,45,117,0.5)]" />
-              )}
+              ) : null}
 
               <Icon
                 className={cn(

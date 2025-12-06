@@ -81,7 +81,7 @@ export default function VideoPage() {
           }
           setGallery((prev) => [
             {
-              video_base64: status.video_base64!,
+              video_base64: status.video_base64 ?? "",
               prompt: originalPrompt,
               imagePreview: originalImagePreview,
             },
@@ -99,7 +99,9 @@ export default function VideoPage() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!selectedImage) throw new Error("No image selected");
+      if (!selectedImage) {
+        throw new Error("No image selected");
+      }
       return generateVideo(selectedImage, prompt, {
         num_inference_steps: steps,
         guidance_scale: guidanceScale,
@@ -131,7 +133,7 @@ export default function VideoPage() {
     e.preventDefault();
     setIsDragOver(false);
     const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) {
+    if (file?.type.startsWith("image/")) {
       setSelectedImage(file);
       const reader = new FileReader();
       reader.onload = () => {
@@ -159,7 +161,9 @@ export default function VideoPage() {
   };
 
   const handleGenerate = useCallback(() => {
-    if (!(selectedImage && prompt.trim())) return;
+    if (!(selectedImage && prompt.trim())) {
+      return;
+    }
     mutation.mutate();
   }, [selectedImage, prompt, mutation]);
 
@@ -196,6 +200,7 @@ export default function VideoPage() {
                 Исходное изображение
               </Label>
               <div
+                aria-label="Область загрузки изображения"
                 className={cn(
                   "relative rounded-xl border-2 border-dashed p-6 text-center transition-all duration-300",
                   isDragOver
@@ -207,13 +212,17 @@ export default function VideoPage() {
                 onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
+                role="region"
               >
                 {imagePreview ? (
                   <div className="relative inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       alt="Preview"
                       className="mx-auto max-h-64 rounded-lg shadow-lg"
+                      height={256}
                       src={imagePreview}
+                      width={256}
                     />
                     <Button
                       className="-top-2 -right-2 absolute h-8 w-8 shadow-lg"
@@ -292,7 +301,7 @@ export default function VideoPage() {
         </CardGlass>
 
         {/* Current task status */}
-        {currentTask && (
+        {currentTask ? (
           <Card className="mb-6 overflow-hidden">
             <CardContent className="pt-6">
               <div className="flex flex-col items-center gap-4 py-4">
@@ -318,11 +327,11 @@ export default function VideoPage() {
                       <p className="font-medium text-destructive">
                         Ошибка генерации
                       </p>
-                      {currentTask.error && (
+                      {currentTask.error ? (
                         <p className="text-destructive/80 text-sm">
                           {currentTask.error}
                         </p>
-                      )}
+                      ) : null}
                     </div>
                   </>
                 ) : (
@@ -332,7 +341,7 @@ export default function VideoPage() {
                   </>
                 )}
 
-                {currentTask.progress != null && (
+                {currentTask.progress !== null ? (
                   <div className="w-full max-w-xs">
                     <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
                       <div
@@ -344,11 +353,11 @@ export default function VideoPage() {
                       {currentTask.progress}%
                     </p>
                   </div>
-                )}
+                ) : null}
               </div>
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
         {/* Gallery */}
         {gallery.length > 0 && (
@@ -360,10 +369,10 @@ export default function VideoPage() {
               </span>
             </h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {gallery.map((video, index) => (
+              {gallery.map((video) => (
                 <Card
                   className="group overflow-hidden transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.2)]"
-                  key={index}
+                  key={`${video.prompt}-${video.video_base64.slice(0, 20)}`}
                 >
                   <div className="relative">
                     <video
@@ -371,7 +380,9 @@ export default function VideoPage() {
                       controls
                       loop
                       src={`data:video/mp4;base64,${video.video_base64}`}
-                    />
+                    >
+                      <track kind="captions" />
+                    </video>
                     <div className="absolute top-3 right-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                       <Button
                         className="shadow-lg"
@@ -386,10 +397,13 @@ export default function VideoPage() {
                   </div>
                   <CardContent className="p-4">
                     <div className="mb-3 flex gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         alt="Source"
                         className="h-12 w-12 rounded-lg object-cover shadow-sm"
+                        height={48}
                         src={video.imagePreview}
+                        width={48}
                       />
                       <p className="line-clamp-2 flex-1 text-muted-foreground text-sm">
                         {video.prompt}
@@ -486,9 +500,10 @@ export default function VideoPage() {
                 </span>
               </Label>
               <Input
-                onChange={(e) =>
-                  setSeed(e.target.value ? Number(e.target.value) : undefined)
-                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSeed(val ? Number(val) : undefined);
+                }}
                 placeholder="Случайный"
                 type="number"
                 value={seed ?? ""}

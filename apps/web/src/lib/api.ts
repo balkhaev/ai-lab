@@ -19,6 +19,12 @@ export type ImageGenerationParams = {
   num_inference_steps?: number;
   guidance_scale?: number;
   seed?: number;
+  model?: string;
+};
+
+export type ImageModelsResponse = {
+  models: string[];
+  current_model: string | null;
 };
 
 export type ImageGenerationResponse = {
@@ -33,6 +39,28 @@ export type VideoTaskResponse = {
   progress: number | null;
   video_base64: string | null;
   error: string | null;
+};
+
+export type Image2ImageParams = {
+  image: File;
+  prompt: string;
+  negative_prompt?: string;
+  strength?: number;
+  num_inference_steps?: number;
+  guidance_scale?: number;
+  seed?: number;
+  model?: string;
+};
+
+export type Image2ImageModelsResponse = {
+  models: string[];
+  current_model: string | null;
+};
+
+export type Image2ImageResponse = {
+  image_base64: string;
+  seed: number;
+  generation_time: number;
 };
 
 // LLM API
@@ -101,7 +129,9 @@ export async function* streamChat(
   let buffer = "";
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      break;
+    }
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
@@ -110,7 +140,9 @@ export async function* streamChat(
     for (const line of lines) {
       if (line.startsWith("data: ")) {
         const data = line.slice(6);
-        if (data === "[DONE]") return;
+        if (data === "[DONE]") {
+          return;
+        }
 
         const parsed = JSON.parse(data) as { content?: string };
         if (parsed.content) {
@@ -166,7 +198,9 @@ export async function* streamCompare(
   let buffer = "";
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      break;
+    }
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
@@ -174,7 +208,7 @@ export async function* streamCompare(
 
     for (const line of lines) {
       if (line.startsWith("event: ")) {
-        const eventType = line.slice(7);
+        const _eventType = line.slice(7);
         continue;
       }
       if (line.startsWith("data: ")) {
@@ -195,6 +229,18 @@ export async function* streamCompare(
 }
 
 // Media API
+export async function getImageModels(): Promise<ImageModelsResponse> {
+  const response = await fetch(`${API_URL}/api/media/image/models`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to get image models");
+  }
+
+  return response.json() as Promise<ImageModelsResponse>;
+}
+
 export async function generateImage(
   params: ImageGenerationParams
 ): Promise<ImageGenerationResponse> {
@@ -211,6 +257,61 @@ export async function generateImage(
   }
 
   return response.json() as Promise<ImageGenerationResponse>;
+}
+
+export async function getImage2ImageModels(): Promise<Image2ImageModelsResponse> {
+  const response = await fetch(`${API_URL}/api/media/image2image/models`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to get image2image models");
+  }
+
+  return response.json() as Promise<Image2ImageModelsResponse>;
+}
+
+export async function generateImage2Image(
+  params: Image2ImageParams
+): Promise<Image2ImageResponse> {
+  const formData = new FormData();
+  formData.append("image", params.image);
+  formData.append("prompt", params.prompt);
+
+  if (params.negative_prompt) {
+    formData.append("negative_prompt", params.negative_prompt);
+  }
+  if (params.strength !== undefined) {
+    formData.append("strength", params.strength.toString());
+  }
+  if (params.num_inference_steps !== undefined) {
+    formData.append(
+      "num_inference_steps",
+      params.num_inference_steps.toString()
+    );
+  }
+  if (params.guidance_scale !== undefined) {
+    formData.append("guidance_scale", params.guidance_scale.toString());
+  }
+  if (params.seed !== undefined) {
+    formData.append("seed", params.seed.toString());
+  }
+  if (params.model) {
+    formData.append("model", params.model);
+  }
+
+  const response = await fetch(`${API_URL}/api/media/image2image`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to transform image: ${error}`);
+  }
+
+  return response.json() as Promise<Image2ImageResponse>;
 }
 
 export async function generateVideo(
@@ -289,7 +390,7 @@ export async function getMediaHealth(): Promise<{
 }
 
 // Model Management API
-export type ModelType = "llm" | "image" | "video";
+export type ModelType = "llm" | "image" | "image2image" | "video";
 export type ModelStatus =
   | "not_loaded"
   | "loading"

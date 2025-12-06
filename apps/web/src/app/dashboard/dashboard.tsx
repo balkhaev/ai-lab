@@ -6,5 +6,7 @@ export default function Dashboard({
 }: {
   session: typeof authClient.$Infer.Session;
 }) {
-  return <></>;
+  // TODO: Implement dashboard with session data
+  console.log("Dashboard session:", session.user.name);
+  return null;
 }

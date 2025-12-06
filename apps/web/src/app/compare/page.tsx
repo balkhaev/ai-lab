@@ -62,7 +62,9 @@ export default function ComparePage() {
   };
 
   const handleGenerate = useCallback(async () => {
-    if (selectedModels.length === 0 || !prompt.trim()) return;
+    if (selectedModels.length === 0 || !prompt.trim()) {
+      return;
+    }
 
     setIsGenerating(true);
     setResponses(
@@ -111,15 +113,23 @@ export default function ComparePage() {
   }, [selectedModels, prompt, systemPrompt, temperature]);
 
   const formatDuration = (ms: number) => {
-    if (ms < 1000) return `${ms}ms`;
+    if (ms < 1000) {
+      return `${ms}ms`;
+    }
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
   const getGridCols = () => {
     const count = selectedModels.length;
-    if (count <= 1) return "grid-cols-1";
-    if (count === 2) return "grid-cols-1 lg:grid-cols-2";
-    if (count === 3) return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
+    if (count <= 1) {
+      return "grid-cols-1";
+    }
+    if (count === 2) {
+      return "grid-cols-1 lg:grid-cols-2";
+    }
+    if (count === 3) {
+      return "grid-cols-1 md:grid-cols-2 lg:grid-cols-3";
+    }
     return "grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
   };
 
@@ -232,18 +242,18 @@ export default function ComparePage() {
                     <div className="flex items-center gap-2">
                       {responses[model]?.done ? (
                         <>
-                          {responses[model]?.duration && (
+                          {responses[model]?.duration ? (
                             <Badge className="text-xs" variant="cyan">
                               <Clock className="mr-1 h-3 w-3" />
-                              {formatDuration(responses[model].duration!)}
+                              {formatDuration(responses[model].duration)}
                             </Badge>
-                          )}
-                          {responses[model]?.tokens && (
+                          ) : null}
+                          {responses[model]?.tokens ? (
                             <Badge className="text-xs" variant="neon">
                               <Zap className="mr-1 h-3 w-3" />
                               {responses[model].tokens}
                             </Badge>
-                          )}
+                          ) : null}
                         </>
                       ) : (
                         <Badge
@@ -320,7 +330,7 @@ export default function ComparePage() {
                   <Skeleton className="h-8 w-full" />
                   <Skeleton className="h-8 w-full" />
                 </div>
-              ) : models && models.length > 0 ? (
+              ) : models ? (
                 <div className="space-y-2">
                   {models.map((model) => (
                     <label
@@ -383,7 +393,7 @@ export default function ComparePage() {
             </div>
 
             {/* Quick actions */}
-            {selectedModels.length > 0 && (
+            {selectedModels.length > 0 ? (
               <Button
                 className="w-full"
                 onClick={() => setSelectedModels([])}
@@ -392,20 +402,20 @@ export default function ComparePage() {
               >
                 Снять выбор со всех
               </Button>
-            )}
+            ) : null}
 
             {models &&
-              models.length > 0 &&
-              selectedModels.length < models.length && (
-                <Button
-                  className="w-full"
-                  onClick={() => setSelectedModels(models.map((m) => m.name))}
-                  size="sm"
-                  variant="outline"
-                >
-                  Выбрать все модели
-                </Button>
-              )}
+            models.length > 0 &&
+            selectedModels.length < models.length ? (
+              <Button
+                className="w-full"
+                onClick={() => setSelectedModels(models.map((m) => m.name))}
+                size="sm"
+                variant="outline"
+              >
+                Выбрать все модели
+              </Button>
+            ) : null}
           </div>
         </div>
       </aside>

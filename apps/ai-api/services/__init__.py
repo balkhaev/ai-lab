@@ -14,6 +14,8 @@ from services.model_manager import (
     unload_video_model,
     get_all_models,
     get_gpu_memory_info,
+    VideoModelFamily,
+    detect_video_model_family,
 )
 
 __all__ = [
@@ -32,4 +34,6 @@ __all__ = [
     "unload_video_model",
     "get_all_models",
     "get_gpu_memory_info",
+    "VideoModelFamily",
+    "detect_video_model_family",
 ]

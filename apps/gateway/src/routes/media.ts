@@ -15,9 +15,16 @@ const imageSchema = z.object({
   num_inference_steps: z.number().int().min(1).max(50).optional().default(4),
   guidance_scale: z.number().min(1).max(20).optional().default(3.5),
   seed: z.number().int().optional(),
+  model: z.string().optional(),
 });
 
 type ImageGenerationResponse = {
+  image_base64: string;
+  seed: number;
+  generation_time: number;
+};
+
+type Image2ImageResponse = {
   image_base64: string;
   seed: number;
   generation_time: number;
@@ -50,6 +57,21 @@ media.get("/health", async (c) => {
   return c.json(data);
 });
 
+// Get available text2image models
+media.get("/image/models", async (c) => {
+  const response = await fetch(`${AI_API_URL}/generate/image/models`);
+
+  if (!response.ok) {
+    return c.json({ error: "Failed to get models list" }, 500);
+  }
+
+  const data = (await response.json()) as {
+    models: string[];
+    current_model: string | null;
+  };
+  return c.json(data);
+});
+
 // Generate image
 media.post("/image", zValidator("json", imageSchema), async (c) => {
   const body = c.req.valid("json");
@@ -66,6 +88,40 @@ media.post("/image", zValidator("json", imageSchema), async (c) => {
   }
 
   const data = (await response.json()) as ImageGenerationResponse;
+  return c.json(data);
+});
+
+// Get available image2image models
+media.get("/image2image/models", async (c) => {
+  const response = await fetch(`${AI_API_URL}/generate/image2image/models`);
+
+  if (!response.ok) {
+    return c.json({ error: "Failed to get models list" }, 500);
+  }
+
+  const data = (await response.json()) as {
+    models: string[];
+    current_model: string | null;
+  };
+  return c.json(data);
+});
+
+// Image-to-image transformation
+media.post("/image2image", async (c) => {
+  const formData = await c.req.formData();
+
+  // Forward form data to AI API
+  const response = await fetch(`${AI_API_URL}/generate/image2image`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    return c.json({ error: `Failed to transform image: ${error}` }, 500);
+  }
+
+  const data = (await response.json()) as Image2ImageResponse;
   return c.json(data);
 });
 

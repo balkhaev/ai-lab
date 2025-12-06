@@ -6,7 +6,8 @@
 
 - **LLM Chat** — чат с языковыми моделями с поддержкой стриминга
 - **Model Comparison** — сравнение ответов нескольких моделей на один промпт
-- **Image Generation** — генерация изображений по текстовому описанию (diffusion модели)
+- **Image Generation** — генерация изображений по текстовому описанию (text-to-image)
+- **Image-to-Image** — трансформация изображений на основе текстового промпта
 - **Video Generation** — генерация видео на основе изображения и текстового промпта
 - **Dynamic Model Management** — загрузка и выгрузка моделей на лету для оптимизации GPU памяти
 
@@ -57,9 +58,11 @@ docker run --gpus all -p 8000:8000 \
 | `TENSOR_PARALLEL_SIZE`   | Количество GPU для параллелизма тензоров   | `1`                                                 |
 | `GPU_MEMORY_UTILIZATION` | Процент использования GPU памяти           | `0.95`                                              |
 | `MAX_MODEL_LEN`          | Максимальная длина контекста               | `8192`                                              |
-| `IMAGE_MODEL`            | Модель для генерации изображений           | `Tongyi-MAI/Z-Image-Turbo`                          |
-| `VIDEO_MODEL`            | Модель для генерации видео                 | `FX-FeiHou/wan2.2-Remix`                            |
-| `ENABLE_IMAGE`           | Включить генерацию изображений             | `true`                                              |
+| `IMAGE_MODEL`            | Модель для text-to-image генерации         | `Tongyi-MAI/Z-Image-Turbo`                          |
+| `IMAGE2IMAGE_MODEL`      | Модель для image-to-image трансформации    | `Heartsync/NSFW-Uncensored`                         |
+| `VIDEO_MODEL`            | Модель для генерации видео                 | `Phr00t/WAN2.2-14B-Rapid-AllInOne`                  |
+| `ENABLE_IMAGE`           | Включить text-to-image генерацию           | `true`                                              |
+| `ENABLE_IMAGE2IMAGE`     | Включить image-to-image трансформацию      | `true`                                              |
 | `ENABLE_VIDEO`           | Включить генерацию видео                   | `true`                                              |
 | `HF_HOME`                | Директория кэша HuggingFace                | `/models`                                           |
 
@@ -165,7 +168,82 @@ POST /generate/image
 }
 ```
 
+#### Image-to-Image трансформация
+
+##### Список доступных моделей
+
+```
+GET /generate/image2image/models
+```
+
+**Ответ:**
+
+```json
+{
+  "models": [
+    "Heartsync/NSFW-Uncensored",
+    "stabilityai/stable-diffusion-xl-base-1.0"
+  ],
+  "current_model": "Heartsync/NSFW-Uncensored"
+}
+```
+
+##### Трансформация изображения
+
+```
+POST /generate/image2image
+Content-Type: multipart/form-data
+
+image: <file>               # Исходное изображение
+prompt: "Transform to oil painting style"
+negative_prompt: "blurry"   # Опционально
+strength: 0.75              # Сила трансформации (0.0-1.0)
+num_inference_steps: 30
+guidance_scale: 7.5
+seed: 42                    # Опционально
+model: "Heartsync/NSFW-Uncensored"  # Опционально, выбор модели
+```
+
+**Ответ:**
+
+```json
+{
+  "image_base64": "iVBORw0KGgo...",
+  "seed": 42,
+  "generation_time": 3.5
+}
+```
+
+**Параметры:**
+
+- `strength` — сила трансформации: 0.0 = почти оригинал, 1.0 = полная трансформация
+- `model` — выбор модели для генерации (опционально, по умолчанию используется `IMAGE2IMAGE_MODEL`)
+- Чем выше `strength`, тем сильнее изменение относительно исходного изображения
+
+**Доступные модели:**
+
+- `Heartsync/NSFW-Uncensored` — SDXL-based модель без цензуры (по умолчанию)
+- `stabilityai/stable-diffusion-xl-base-1.0` — базовая SDXL модель
+- `Tongyi-MAI/Z-Image-Edit` — (скоро) модель от Alibaba для редактирования
+
 #### Генерация видео
+
+Поддерживается несколько семейств видео моделей с автоматическим определением pipeline:
+
+| Модель                                 | Описание                                  | VRAM  | FPS | Шаги |
+| -------------------------------------- | ----------------------------------------- | ----- | --- | ---- |
+| `Phr00t/WAN2.2-14B-Rapid-AllInOne`     | **MEGA** T2V+I2V+VACE, FP8, самая быстрая | ~8GB  | 24  | 4    |
+| `Lightricks/LTX-Video`                 | Быстрая, real-time capable                | ~16GB | 30  | 30   |
+| `THUDM/CogVideoX-5b-I2V`               | Хорошее качество I2V                      | ~24GB | 8   | 50   |
+| `Wan-AI/Wan2.2-I2V-14B-480P-Diffusers` | Высокое качество I2V                      | ~48GB | 24  | 30   |
+| `tencent/HunyuanVideo`                 | Лучшее качество T2V                       | 60GB+ | 30  | 50   |
+
+> **Phr00t/WAN2.2-14B-Rapid-AllInOne** — оптимизированная модель с автоматическими параметрами:
+>
+> - 4 шага инференса
+> - CFG 1.0
+> - Поддержка T2V, I2V и VACE (first-to-last frame)
+> - Работает даже на 8GB VRAM!
 
 Запуск задачи:
 
@@ -265,7 +343,7 @@ POST /models/load
 }
 ```
 
-Типы моделей (`model_type`): `llm`, `image`, `video`
+Типы моделей (`model_type`): `llm`, `image`, `image2image`, `video`
 
 #### Выгрузка модели
 

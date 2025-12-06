@@ -27,13 +27,13 @@
     "rules": {
       "complexity": {
         "noExcessiveCognitiveComplexity": "off",
-        "noUselessFragments": "off",
-        "useOptionalChain": "off"
+        "noUselessFragments": "error",
+        "useOptionalChain": "error"
       },
       "style": {
-        "useBlockStatements": "off",
-        "noNonNullAssertion": "off",
-        "noNestedTernary": "off"
+        "useBlockStatements": "error",
+        "noNonNullAssertion": "error",
+        "noNestedTernary": "warn"
       },
       "performance": {
         "noNamespaceImport": "off",
@@ -41,21 +41,22 @@
       },
       "correctness": {
         "useImageSize": "off",
-        "noUnusedVariables": "off",
-        "noUnusedFunctionParameters": "off"
+        "noUnusedVariables": "error",
+        "noUnusedFunctionParameters": "error"
       },
       "nursery": {
-        "noLeakedRender": "off",
-        "noEqualsToNull": "off"
+        "noLeakedRender": "warn",
+        "noEqualsToNull": "error"
       },
       "suspicious": {
-        "useAwait": "off",
-        "noArrayIndexKey": "off"
+        "useAwait": "error",
+        "noArrayIndexKey": "warn"
       },
       "a11y": {
-        "noStaticElementInteractions": "off",
-        "noNoninteractiveElementInteractions": "off",
-        "useMediaCaption": "off"
+        "noStaticElementInteractions": "warn",
+        "noNoninteractiveElementInteractions": "warn",
+        "useMediaCaption": "warn",
+        "useSemanticElements": "warn"
       }
     }
   }

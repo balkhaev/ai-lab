@@ -116,7 +116,9 @@ llm.post("/chat", zValidator("json", chatSchema), async (c) => {
       let buffer = "";
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          break;
+        }
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
@@ -169,7 +171,7 @@ llm.post("/chat", zValidator("json", chatSchema), async (c) => {
 });
 
 // Compare multiple models (streaming) - proxies to ai-api /api/compare
-llm.post("/compare", zValidator("json", compareSchema), async (c) => {
+llm.post("/compare", zValidator("json", compareSchema), (c) => {
   const body = c.req.valid("json");
 
   // Map options to top-level params for ai-api
@@ -204,7 +206,9 @@ llm.post("/compare", zValidator("json", compareSchema), async (c) => {
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done) {
+        break;
+      }
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");

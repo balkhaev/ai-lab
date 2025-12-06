@@ -7,10 +7,14 @@ export function AnimatedBackground() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      return;
+    }
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      return;
+    }
 
     let animationFrameId: number;
     let particles: Particle[] = [];
@@ -49,8 +53,12 @@ export function AnimatedBackground() {
         this.x += this.speedX;
         this.y += this.speedY;
 
-        if (this.x < 0 || this.x > canvasWidth) this.speedX *= -1;
-        if (this.y < 0 || this.y > canvasHeight) this.speedY *= -1;
+        if (this.x < 0 || this.x > canvasWidth) {
+          this.speedX *= -1;
+        }
+        if (this.y < 0 || this.y > canvasHeight) {
+          this.speedY *= -1;
+        }
       }
 
       draw(context: CanvasRenderingContext2D) {

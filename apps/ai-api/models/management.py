@@ -9,6 +9,7 @@ class ModelType(str, Enum):
     """Type of model"""
     LLM = "llm"
     IMAGE = "image"
+    IMAGE2IMAGE = "image2image"
     VIDEO = "video"
 
 

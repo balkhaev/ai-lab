@@ -72,6 +72,13 @@ const MODEL_TYPE_CONFIG = {
     bgColor: "bg-purple-500/10",
     borderColor: "border-purple-500/30",
   },
+  image2image: {
+    label: "Img2Img",
+    icon: ImageIcon,
+    color: "text-indigo-500",
+    bgColor: "bg-indigo-500/10",
+    borderColor: "border-indigo-500/30",
+  },
   video: {
     label: "Video",
     icon: Video,
@@ -113,6 +120,7 @@ const STATUS_CONFIG: Record<
 };
 
 const PRESET_MODELS = [
+  // LLM Models
   {
     id: "NousResearch/Hermes-3-Llama-3.2-3B",
     type: "llm" as ModelType,
@@ -133,6 +141,7 @@ const PRESET_MODELS = [
     type: "llm" as ModelType,
     name: "Mistral-7B-Instruct",
   },
+  // Image Models
   {
     id: "Tongyi-MAI/Z-Image-Turbo",
     type: "image" as ModelType,
@@ -143,16 +152,58 @@ const PRESET_MODELS = [
     type: "image" as ModelType,
     name: "SDXL Base",
   },
+  // Image2Image Models
+  {
+    id: "Heartsync/NSFW-Uncensored",
+    type: "image2image" as ModelType,
+    name: "NSFW-Uncensored",
+  },
+  {
+    id: "stabilityai/stable-diffusion-xl-base-1.0",
+    type: "image2image" as ModelType,
+    name: "SDXL Img2Img",
+  },
+  // Video Models
+  {
+    id: "Phr00t/WAN2.2-14B-Rapid-AllInOne",
+    type: "video" as ModelType,
+    name: "WAN Rapid (8GB VRAM)",
+    description: "FP8, 4 steps, fastest",
+  },
+  {
+    id: "Lightricks/LTX-Video",
+    type: "video" as ModelType,
+    name: "LTX-Video",
+    description: "Fast, 30fps",
+  },
+  {
+    id: "THUDM/CogVideoX-5b-I2V",
+    type: "video" as ModelType,
+    name: "CogVideoX-5B",
+    description: "Good quality I2V",
+  },
+  {
+    id: "Wan-AI/Wan2.2-I2V-14B-480P-Diffusers",
+    type: "video" as ModelType,
+    name: "Wan2.2 I2V",
+    description: "High quality, 24fps",
+  },
 ];
 
 function formatBytes(mb: number | null): string {
-  if (mb === null) return "N/A";
-  if (mb >= 1024) return `${(mb / 1024).toFixed(1)} GB`;
+  if (mb === null) {
+    return "N/A";
+  }
+  if (mb >= 1024) {
+    return `${(mb / 1024).toFixed(1)} GB`;
+  }
   return `${mb.toFixed(0)} MB`;
 }
 
 function formatDate(isoString: string | null): string {
-  if (!isoString) return "N/A";
+  if (!isoString) {
+    return "N/A";
+  }
   return new Date(isoString).toLocaleString("ru-RU", {
     day: "2-digit",
     month: "2-digit",
@@ -241,20 +292,20 @@ function ModelCard({
             <Box className="h-3 w-3" />
             {typeConfig.label}
           </span>
-          {model.loaded_at && (
+          {model.loaded_at ? (
             <span className="flex items-center gap-1">
               <Zap className="h-3 w-3" />
               Загружена: {formatDate(model.loaded_at)}
             </span>
-          )}
+          ) : null}
         </div>
 
         {/* Error message */}
-        {model.error && (
+        {model.error ? (
           <div className="mt-3 rounded-md bg-red-500/10 p-2 text-red-500 text-xs">
             {model.error}
           </div>
-        )}
+        ) : null}
 
         {/* Actions */}
         {model.status === "loaded" && (
@@ -324,8 +375,12 @@ function GpuMemoryCard({
 }
 
 function formatGb(gb: number | null): string {
-  if (gb === null) return "N/A";
-  if (gb >= 1024) return `${(gb / 1024).toFixed(1)} TB`;
+  if (gb === null) {
+    return "N/A";
+  }
+  if (gb >= 1024) {
+    return `${(gb / 1024).toFixed(1)} TB`;
+  }
   return `${gb.toFixed(1)} GB`;
 }
 
@@ -401,7 +456,9 @@ export default function ModelsPage() {
   });
 
   const handleLoad = () => {
-    if (!newModelId.trim()) return;
+    if (!newModelId.trim()) {
+      return;
+    }
     loadMutation.mutate({
       model_id: newModelId.trim(),
       model_type: newModelType,
@@ -447,7 +504,7 @@ export default function ModelsPage() {
             variant="outline"
           >
             <RefreshCw
-              className={cn("mr-2 h-4 w-4", isRefetching && "animate-spin")}
+              className={cn("mr-2 h-4 w-4", isRefetching ? "animate-spin" : "")}
             />
             Обновить
           </Button>
@@ -463,7 +520,7 @@ export default function ModelsPage() {
       </div>
 
       {/* Error state */}
-      {error && (
+      {error ? (
         <Card className="mb-6 border-red-500/30 bg-red-500/5">
           <CardContent className="flex items-center gap-3 py-4">
             <AlertCircle className="h-5 w-5 text-red-500" />
@@ -477,10 +534,10 @@ export default function ModelsPage() {
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       {/* Loading state */}
-      {isLoading && (
+      {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
@@ -496,10 +553,10 @@ export default function ModelsPage() {
             </Card>
           ))}
         </div>
-      )}
+      ) : null}
 
       {/* Content */}
-      {data && (
+      {data ? (
         <div className="space-y-6">
           {/* System Stats */}
           <div className="grid gap-4 md:grid-cols-2">
@@ -578,7 +635,7 @@ export default function ModelsPage() {
             </Card>
           )}
         </div>
-      )}
+      ) : null}
 
       {/* Load model dialog */}
       <Dialog onOpenChange={setLoadDialogOpen} open={loadDialogOpen}>
@@ -648,6 +705,12 @@ export default function ModelsPage() {
                       Image (генерация изображений)
                     </span>
                   </SelectItem>
+                  <SelectItem value="image2image">
+                    <span className="flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-indigo-500" />
+                      Img2Img (трансформация)
+                    </span>
+                  </SelectItem>
                   <SelectItem value="video">
                     <span className="flex items-center gap-2">
                       <Video className="h-4 w-4 text-pink-500" />
@@ -683,13 +746,13 @@ export default function ModelsPage() {
           </DialogFooter>
 
           {/* Error */}
-          {loadMutation.error && (
+          {loadMutation.error ? (
             <div className="mt-2 rounded-md bg-red-500/10 p-3 text-red-500 text-sm">
               {loadMutation.error instanceof Error
                 ? loadMutation.error.message
                 : "Ошибка загрузки модели"}
             </div>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

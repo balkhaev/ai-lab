@@ -11,16 +11,45 @@ import torch
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from PIL import Image
 
-from config import ENABLE_IMAGE, ENABLE_VIDEO, get_device
+from config import ENABLE_IMAGE, ENABLE_IMAGE2IMAGE, ENABLE_VIDEO, IMAGE_MODELS, IMAGE2IMAGE_MODELS, get_device
 from models.media import (
     ImageGenerationRequest,
     ImageGenerationResponse,
+    Image2ImageResponse,
     VideoTaskResponse,
 )
-from services.media import load_image_model, process_video_task
+from services.media import load_image_model, load_image2image_model, process_video_task
 from state import media_models, video_tasks
 
 router = APIRouter(prefix="/generate", tags=["Media Generation"])
+
+
+@router.get(
+    "/image/models",
+    summary="Get available text2image models",
+    description="Returns list of available models for text-to-image generation",
+)
+async def get_image_models():
+    """Get list of available text2image models"""
+    current_model = media_models.get("image_model_id")
+    return {
+        "models": IMAGE_MODELS,
+        "current_model": current_model,
+    }
+
+
+@router.get(
+    "/image2image/models",
+    summary="Get available image2image models",
+    description="Returns list of available models for image-to-image generation",
+)
+async def get_image2image_models():
+    """Get list of available image2image models"""
+    current_model = media_models.get("image2image_model_id")
+    return {
+        "models": IMAGE2IMAGE_MODELS,
+        "current_model": current_model,
+    }
 
 
 @router.post(
@@ -36,9 +65,20 @@ async def generate_image(request: ImageGenerationRequest):
 
     start_time = time.time()
 
-    # Lazy load model
-    if "image" not in media_models:
-        media_models["image"] = load_image_model()
+    # Check if we need to load a different model
+    current_model = media_models.get("image_model_id")
+    requested_model = request.model if request.model else current_model
+    
+    # Validate model if specified
+    if request.model and request.model not in IMAGE_MODELS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid model. Available models: {IMAGE_MODELS}"
+        )
+
+    # Lazy load model or switch if different model requested
+    if "image" not in media_models or (request.model and request.model != current_model):
+        media_models["image"] = load_image_model(request.model)
 
     pipe = media_models["image"]
 
@@ -66,6 +106,77 @@ async def generate_image(request: ImageGenerationRequest):
     return ImageGenerationResponse(
         image_base64=image_base64,
         seed=seed,
+        generation_time=generation_time,
+    )
+
+
+@router.post(
+    "/image2image",
+    response_model=Image2ImageResponse,
+    summary="Transform image with prompt",
+    description="Transform an existing image based on a text prompt (image-to-image generation)",
+)
+async def generate_image2image(
+    image: UploadFile = File(..., description="Input image to transform"),
+    prompt: str = Form(..., description="Text prompt describing the transformation"),
+    negative_prompt: str = Form(default="", description="Negative prompt"),
+    strength: float = Form(default=0.75, description="Transformation strength (0.0-1.0)"),
+    num_inference_steps: int = Form(default=30, description="Number of inference steps"),
+    guidance_scale: float = Form(default=7.5, description="Guidance scale"),
+    seed: int | None = Form(default=None, description="Random seed"),
+    model: str | None = Form(default=None, description="Model to use (optional, uses default if not specified)"),
+):
+    """Transform image using image-to-image diffusion model"""
+    if not ENABLE_IMAGE2IMAGE:
+        raise HTTPException(status_code=503, detail="Image-to-image generation is disabled")
+
+    start_time = time.time()
+
+    # Read and process input image
+    contents = await image.read()
+    pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
+
+    # Check if we need to load a different model
+    current_model = media_models.get("image2image_model_id")
+    requested_model = model if model else current_model
+    
+    # Validate model if specified
+    if model and model not in IMAGE2IMAGE_MODELS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid model. Available models: {IMAGE2IMAGE_MODELS}"
+        )
+
+    # Lazy load model or switch if different model requested
+    if "image2image" not in media_models or (model and model != current_model):
+        media_models["image2image"] = load_image2image_model(model)
+
+    pipe = media_models["image2image"]
+
+    actual_seed = seed if seed is not None else torch.randint(0, 2**32, (1,)).item()
+    generator = torch.Generator(device=get_device()).manual_seed(actual_seed)
+
+    result = pipe(
+        prompt=prompt,
+        negative_prompt=negative_prompt if negative_prompt else None,
+        image=pil_image,
+        strength=strength,
+        num_inference_steps=num_inference_steps,
+        guidance_scale=guidance_scale,
+        generator=generator,
+    )
+
+    output_image = result.images[0]
+
+    buffer = io.BytesIO()
+    output_image.save(buffer, format="PNG")
+    image_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    generation_time = time.time() - start_time
+
+    return Image2ImageResponse(
+        image_base64=image_base64,
+        seed=actual_seed,
         generation_time=generation_time,
     )
 
