@@ -155,9 +155,10 @@ class ModelOrchestrator:
     
     # ==================== Memory Management ====================
     
-    async def ensure_memory_available(self, required_mb: float, exclude_model_id: str | None = None) -> None:
+    async def _ensure_memory_available_internal(self, required_mb: float, exclude_model_id: str | None = None) -> None:
         """
         Ensure enough GPU memory is available by unloading LRU models.
+        Internal method - must be called with lock already held.
         
         Args:
             required_mb: Required memory in MB
@@ -182,13 +183,26 @@ class ModelOrchestrator:
                 break
             
             logger.info(f"Unloading LRU model: {model.model_id} (last used: {model.last_used})")
-            await self.unload(model.model_id)
+            # Use internal method to avoid deadlock (lock already held)
+            await self._unload_internal(model.model_id)
             gpu = self.get_gpu_status()
         
         if gpu.free_mb < required_mb:
             logger.warning(
                 f"Could not free enough memory. Available: {gpu.free_mb:.0f}MB, required: {required_mb:.0f}MB"
             )
+    
+    async def ensure_memory_available(self, required_mb: float, exclude_model_id: str | None = None) -> None:
+        """
+        Ensure enough GPU memory is available by unloading LRU models.
+        Public method that acquires lock.
+        
+        Args:
+            required_mb: Required memory in MB
+            exclude_model_id: Model ID to exclude from unloading
+        """
+        async with self._lock:
+            await self._ensure_memory_available_internal(required_mb, exclude_model_id)
     
     # ==================== Load/Unload ====================
     
@@ -226,7 +240,8 @@ class ModelOrchestrator:
             try:
                 # Estimate memory and ensure it's available
                 memory_estimate = self._estimate_memory(model_id, model_type)
-                await self.ensure_memory_available(memory_estimate, exclude_model_id=model_id)
+                # Use internal method since we already hold the lock
+                await self._ensure_memory_available_internal(memory_estimate, exclude_model_id=model_id)
                 
                 # Load based on type
                 instance, actual_memory, metadata = await self._load_model(model_id, model_type)
