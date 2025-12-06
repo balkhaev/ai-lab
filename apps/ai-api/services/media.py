@@ -25,6 +25,46 @@ SDXL_MODELS = ["Heartsync/NSFW-Uncensored", "stabilityai/stable-diffusion-xl-bas
 logger = logging.getLogger(__name__)
 
 
+def _unload_llm_models_sync():
+    """Unload all LLM models synchronously to free GPU memory for media models"""
+    import gc
+    from models.management import ModelType, ModelStatus
+    from state import llm_engines, model_info
+    
+    if not llm_engines:
+        return
+    
+    logger.info(f"Unloading LLM models to free GPU memory: {list(llm_engines.keys())}")
+    
+    for model_id in list(llm_engines.keys()):
+        try:
+            engine = llm_engines[model_id]
+            # Try to shutdown engine (vLLM specific)
+            if hasattr(engine, "shutdown_background_loop"):
+                engine.shutdown_background_loop()
+            del llm_engines[model_id]
+            if model_id in model_info:
+                del model_info[model_id]
+            # Update status tracking
+            model_status[model_id] = {
+                "type": ModelType.LLM,
+                "status": ModelStatus.NOT_LOADED,
+                "error": None,
+                "loaded_at": None,
+            }
+            logger.info(f"Unloaded LLM model: {model_id}")
+        except Exception as e:
+            logger.warning(f"Error unloading LLM model {model_id}: {e}")
+    
+    # Force garbage collection and clear CUDA cache
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+    
+    logger.info("LLM models unloaded, GPU memory freed")
+
+
 def load_image_model(model_id: str | None = None):
     """
     Load image generation model (lazy loading for routes/media.py).
@@ -38,9 +78,14 @@ def load_image_model(model_id: str | None = None):
     """
     from diffusers import DiffusionPipeline
     from models.management import ModelType, ModelStatus
+    from state import llm_engines
 
     target_model = model_id or IMAGE_MODEL
     logger.info(f"Loading image model: {target_model}")
+    
+    # Unload LLM models first to free GPU memory
+    if llm_engines:
+        _unload_llm_models_sync()
 
     # Update status
     model_status[target_model] = {
@@ -124,9 +169,14 @@ def load_image2image_model(model_id: str | None = None):
     """
     from diffusers import AutoPipelineForImage2Image
     from models.management import ModelType, ModelStatus
+    from state import llm_engines
 
     target_model = model_id or IMAGE2IMAGE_MODEL
     logger.info(f"Loading image2image model: {target_model}")
+    
+    # Unload LLM models first to free GPU memory
+    if llm_engines:
+        _unload_llm_models_sync()
 
     # Update status
     model_status[target_model] = {
@@ -196,8 +246,13 @@ def load_video_model():
         _load_wan_rapid_pipeline,
         _load_ltx_pipeline,
     )
+    from state import llm_engines
 
     logger.info(f"Loading video model: {VIDEO_MODEL}")
+    
+    # Unload LLM models first to free GPU memory
+    if llm_engines:
+        _unload_llm_models_sync()
     
     # Detect model family
     model_family = detect_video_model_family(VIDEO_MODEL)
