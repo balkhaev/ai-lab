@@ -55,7 +55,12 @@ export function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-export type LLMPromptFormat = "chatml" | "mistral" | "llama2" | "alpaca";
+export type LLMPromptFormat =
+  | "chatml"
+  | "mistral"
+  | "llama2"
+  | "llama3"
+  | "alpaca";
 
 export type LLMPreset = {
   model_id: string;
@@ -74,9 +79,11 @@ export type LLMPreset = {
 
 export type Model = {
   name: string;
+  model_id?: string; // Full HuggingFace model ID (for presets)
   size: number;
   modified_at: string;
   preset: LLMPreset | null;
+  loaded: boolean;
 };
 
 export type LLMModelsResponse = {

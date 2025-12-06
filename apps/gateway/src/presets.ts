@@ -7,7 +7,12 @@
 
 // ============== LLM Types ==============
 
-export type LLMPromptFormat = "chatml" | "mistral" | "llama2" | "alpaca";
+export type LLMPromptFormat =
+  | "chatml"
+  | "mistral"
+  | "llama2"
+  | "llama3"
+  | "alpaca";
 
 export type LLMPreset = {
   model_id: string;
@@ -45,6 +50,23 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
     supports_system_prompt: true,
     supports_vision: false,
   },
+  "DavidAU/Llama-3.2-8X3B-MOE-Dark-Champion-Instruct-uncensored-abliterated-18.4B":
+    {
+      model_id:
+        "DavidAU/Llama-3.2-8X3B-MOE-Dark-Champion-Instruct-uncensored-abliterated-18.4B",
+      name: "Dark Champion 18B MOE",
+      description:
+        "Llama 3.2 MOE (8x3B). Uncensored, для творческого письма и RP. 128k контекст.",
+      prompt_format: "llama3",
+      temperature: 0.8,
+      top_p: 0.95,
+      top_k: 40,
+      max_tokens: 4096,
+      min_temperature: 0.1,
+      max_temperature: 2.0, // Model supports up to 5, but 2 is reasonable UI max
+      supports_system_prompt: true,
+      supports_vision: false,
+    },
   "Qwen/Qwen2.5-7B-Instruct": {
     model_id: "Qwen/Qwen2.5-7B-Instruct",
     name: "Qwen 2.5 7B",

@@ -97,29 +97,72 @@ llm.get("/presets", (c) => {
   return c.json({ presets });
 });
 
-// Get available models
+// Get available models (loaded + presets)
 llm.get("/models", async (c) => {
-  const response = await fetch(`${AI_API_URL}/api/tags`);
+  const presets = getAllLLMPresets();
 
-  if (!response.ok) {
-    return c.json({ error: "Failed to fetch models from AI API" }, 500);
+  // Try to get loaded models from ai-api
+  let loadedModels: Array<{
+    name: string;
+    size: number;
+    modified_at: string;
+  }> = [];
+
+  try {
+    const response = await fetch(`${AI_API_URL}/api/tags`);
+    if (response.ok) {
+      const data = (await response.json()) as {
+        models: Array<{ name: string; size: number; modified_at: string }>;
+      };
+      loadedModels = data.models;
+    }
+  } catch {
+    // ai-api might be unavailable, continue with presets only
   }
 
-  const data = (await response.json()) as {
-    models: Array<{ name: string; size: number; modified_at: string }>;
-  };
+  // Create a map of loaded model names for quick lookup
+  const loadedModelNames = new Set(loadedModels.map((m) => m.name));
 
-  // Enrich models with preset info
-  const presets = getAllLLMPresets();
-  const models = data.models.map((m) => {
+  // Combine loaded models with presets
+  type ModelEntry = {
+    name: string;
+    model_id?: string;
+    size: number;
+    modified_at: string;
+    preset: ReturnType<typeof getLLMPreset> | null;
+    loaded: boolean;
+  };
+  const models: ModelEntry[] = [];
+
+  // First, add all loaded models with their preset info
+  for (const m of loadedModels) {
     const preset = getLLMPreset(m.name);
-    return {
+    models.push({
       name: m.name,
       size: m.size,
       modified_at: m.modified_at,
       preset: preset.model_id !== "default" ? preset : null,
-    };
-  });
+      loaded: true,
+    });
+  }
+
+  // Then, add presets that are not loaded yet
+  for (const [modelId, preset] of Object.entries(presets)) {
+    const shortName = modelId.split("/").pop() || modelId;
+    const isLoaded =
+      loadedModelNames.has(modelId) || loadedModelNames.has(shortName);
+
+    if (!isLoaded) {
+      models.push({
+        name: shortName,
+        model_id: modelId,
+        size: 0,
+        modified_at: "",
+        preset,
+        loaded: false,
+      });
+    }
+  }
 
   return c.json({ models, presets });
 });

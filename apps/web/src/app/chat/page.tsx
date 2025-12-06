@@ -34,6 +34,7 @@ import {
   type ContentPart,
   fileToDataUrl,
   getModels,
+  loadModel,
   multimodalMessage,
   streamChat,
   textMessage,
@@ -62,43 +63,73 @@ export default function ChatPage() {
   );
   const [temperature, setTemperature] = useState(0.7);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoadingModel, setIsLoadingModel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const { data: models, isLoading: modelsLoading } = useQuery({
+  const {
+    data: models,
+    isLoading: modelsLoading,
+    refetch: refetchModels,
+  } = useQuery({
     queryKey: ["llm-models"],
     queryFn: getModels,
   });
 
-  // Get current model's preset
-  const currentPreset = useMemo(() => {
+  // Get current model object
+  const currentModel = useMemo(() => {
     if (!(models && selectedModel)) {
       return null;
     }
-    const model = models.find((m) => m.name === selectedModel);
-    return model?.preset ?? null;
+    return models.find((m) => m.name === selectedModel) ?? null;
   }, [models, selectedModel]);
 
-  // Set default model when models load
+  // Get current model's preset
+  const currentPreset = useMemo(
+    () => currentModel?.preset ?? null,
+    [currentModel]
+  );
+
+  // Set default model when models load (prefer loaded models)
   useEffect(() => {
     if (models && models.length > 0 && !selectedModel) {
-      setSelectedModel(models[0].name);
+      const loadedModel = models.find((m) => m.loaded);
+      setSelectedModel(loadedModel?.name ?? models[0].name);
     }
   }, [models, selectedModel]);
 
   // Apply preset settings when model changes
   const handleModelChange = useCallback(
-    (modelName: string) => {
-      setSelectedModel(modelName);
+    async (modelName: string) => {
       const model = models?.find((m) => m.name === modelName);
+
+      // If model is not loaded, load it first
+      if (model && !model.loaded) {
+        setIsLoadingModel(true);
+        try {
+          const modelId = model.model_id ?? model.preset?.model_id ?? modelName;
+          await loadModel({
+            model_id: modelId,
+            model_type: "llm",
+          });
+          await refetchModels();
+        } catch (error) {
+          console.error("Failed to load model:", error);
+          setIsLoadingModel(false);
+          return;
+        }
+        setIsLoadingModel(false);
+      }
+
+      setSelectedModel(modelName);
       if (model?.preset) {
         setTemperature(model.preset.temperature);
       }
     },
-    [models]
+    [models, refetchModels]
   );
 
   // Auto-scroll to bottom when new messages are added
@@ -522,10 +553,22 @@ export default function ChatPage() {
             {/* Model selection */}
             <div className="space-y-3">
               <Label className="font-medium text-sm">Модель</Label>
-              {modelsLoading ? (
-                <Skeleton className="h-10 w-full" />
+              {modelsLoading || isLoadingModel ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-full" />
+                  {isLoadingModel ? (
+                    <p className="flex items-center gap-2 text-muted-foreground text-xs">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Загрузка модели...
+                    </p>
+                  ) : null}
+                </div>
               ) : (
-                <Select onValueChange={handleModelChange} value={selectedModel}>
+                <Select
+                  disabled={isLoadingModel}
+                  onValueChange={handleModelChange}
+                  value={selectedModel}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите модель" />
                   </SelectTrigger>
@@ -534,6 +577,11 @@ export default function ChatPage() {
                       <SelectItem key={model.name} value={model.name}>
                         <div className="flex items-center gap-2">
                           <span>{model.preset?.name ?? model.name}</span>
+                          {model.loaded ? null : (
+                            <Badge className="text-[10px]" variant="outline">
+                              ↓
+                            </Badge>
+                          )}
                           {model.preset?.supports_vision === true ? (
                             <Badge className="text-[10px]" variant="secondary">
                               VL
@@ -548,6 +596,11 @@ export default function ChatPage() {
               {currentPreset ? (
                 <p className="text-muted-foreground text-xs">
                   {currentPreset.description}
+                </p>
+              ) : null}
+              {currentModel !== null && currentModel.loaded === false ? (
+                <p className="text-amber-500 text-xs">
+                  ⚠️ Модель не загружена. Выбор запустит загрузку.
                 </p>
               ) : null}
             </div>

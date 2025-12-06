@@ -62,6 +62,10 @@ def _detect_prompt_format(model_id: str) -> str:
     """Detect prompt format based on model ID"""
     model_id_lower = model_id.lower()
     
+    # Llama 3.x models
+    if any(name in model_id_lower for name in ["llama-3", "llama3", "llama.3"]):
+        return "llama3"
+    
     # Mistral-based models
     if any(name in model_id_lower for name in ["mistral", "nemo", "marinara"]):
         return "mistral"
@@ -81,7 +85,7 @@ def format_chat_prompt(messages: list[ChatMessage], model_id: str, prompt_format
     Args:
         messages: List of chat messages
         model_id: HuggingFace model ID
-        prompt_format: Optional explicit format ("chatml", "mistral", "llama2")
+        prompt_format: Optional explicit format ("chatml", "mistral", "llama2", "llama3")
                       If not provided, will be auto-detected from model_id
     
     Returns:
@@ -92,7 +96,9 @@ def format_chat_prompt(messages: list[ChatMessage], model_id: str, prompt_format
     
     is_vision_model = "VL" in model_id.upper() or "VISION" in model_id.upper()
     
-    if prompt_format == "mistral":
+    if prompt_format == "llama3":
+        return _format_llama3(messages, is_vision_model)
+    elif prompt_format == "mistral":
         return _format_mistral(messages, is_vision_model)
     elif prompt_format == "llama2":
         return _format_llama2(messages, is_vision_model)
@@ -110,6 +116,29 @@ def _format_chatml(messages: list[ChatMessage], is_vision_model: bool) -> str:
         formatted += "<|im_end|>\n"
     
     formatted += "<|im_start|>assistant\n"
+    return formatted
+
+
+def _format_llama3(messages: list[ChatMessage], is_vision_model: bool) -> str:
+    """
+    Format messages in Llama 3 Instruct format.
+    
+    Format:
+    <|start_header_id|>system<|end_header_id|>
+    {system}<|eot_id|>
+    <|start_header_id|>user<|end_header_id|>
+    {user}<|eot_id|>
+    <|start_header_id|>assistant<|end_header_id|>
+    {assistant}<|eot_id|>
+    """
+    formatted = ""
+    
+    for msg in messages:
+        formatted += f"<|start_header_id|>{msg.role}<|end_header_id|>\n\n"
+        formatted += _get_content_text(msg.content, is_vision_model)
+        formatted += "<|eot_id|>"
+    
+    formatted += "<|start_header_id|>assistant<|end_header_id|>\n\n"
     return formatted
 
 
