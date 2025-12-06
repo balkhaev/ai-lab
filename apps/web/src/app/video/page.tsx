@@ -315,7 +315,7 @@ export default function VideoPage() {
                   completed: "Видео готово!",
                   failed: "Ошибка генерации",
                 }}
-                onCancel={isFailed ? handleDismissTask : null}
+                onCancel={isFailed ? handleDismissTask : undefined}
                 onRetry={() => mutation.mutate()}
                 task={task}
               />
