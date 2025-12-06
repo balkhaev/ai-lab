@@ -14,3 +14,6 @@ media_models: dict[str, Any] = {}
 
 # Video generation tasks storage
 video_tasks: dict[str, dict[str, Any]] = {}
+
+# Model status tracking (for dynamic loading/unloading)
+model_status: dict[str, dict[str, Any]] = {}

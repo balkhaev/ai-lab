@@ -8,6 +8,7 @@
 - **Model Comparison** — сравнение ответов нескольких моделей на один промпт
 - **Image Generation** — генерация изображений по текстовому описанию (diffusion модели)
 - **Video Generation** — генерация видео на основе изображения и текстового промпта
+- **Dynamic Model Management** — загрузка и выгрузка моделей на лету для оптимизации GPU памяти
 
 ## Требования
 
@@ -209,26 +210,149 @@ GET /generate/video/status/{task_id}
 
 Статусы: `pending`, `processing`, `completed`, `failed`
 
+### Model Management
+
+API для динамического управления моделями позволяет загружать и выгружать модели на лету, освобождая GPU память.
+
+#### Список моделей
+
+```
+GET /models
+```
+
+**Ответ:**
+
+```json
+{
+  "models": [
+    {
+      "model_id": "NousResearch/Hermes-4-14B-FP8",
+      "model_type": "llm",
+      "status": "loaded",
+      "name": "Hermes-4-14B-FP8",
+      "loaded_at": "2024-01-15T10:30:00Z"
+    }
+  ],
+  "gpu_memory_total_mb": 24576,
+  "gpu_memory_used_mb": 15000,
+  "gpu_memory_free_mb": 9576
+}
+```
+
+#### Загрузка модели
+
+```
+POST /models/load
+```
+
+**Тело запроса:**
+
+```json
+{
+  "model_id": "meta-llama/Llama-3.2-8B-Instruct",
+  "model_type": "llm",
+  "force": false
+}
+```
+
+**Ответ:**
+
+```json
+{
+  "model_id": "meta-llama/Llama-3.2-8B-Instruct",
+  "status": "loaded",
+  "message": "Model loaded successfully"
+}
+```
+
+Типы моделей (`model_type`): `llm`, `image`, `video`
+
+#### Выгрузка модели
+
+```
+POST /models/unload
+```
+
+**Тело запроса:**
+
+```json
+{
+  "model_id": "NousResearch/Hermes-4-14B-FP8",
+  "model_type": "llm"
+}
+```
+
+**Ответ:**
+
+```json
+{
+  "model_id": "NousResearch/Hermes-4-14B-FP8",
+  "status": "not_loaded",
+  "message": "Model unloaded successfully",
+  "freed_memory_mb": 14500
+}
+```
+
+#### Переключение модели
+
+```
+POST /models/switch
+```
+
+Выгружает текущую модель того же типа и загружает новую.
+
+**Тело запроса:**
+
+```json
+{
+  "model_id": "Qwen/Qwen2.5-14B-Instruct",
+  "model_type": "llm"
+}
+```
+
+#### Статус модели
+
+```
+GET /models/status/{model_id}
+```
+
+**Ответ:**
+
+```json
+{
+  "model_id": "NousResearch/Hermes-4-14B-FP8",
+  "type": "llm",
+  "status": "loaded",
+  "error": null,
+  "loaded_at": "2024-01-15T10:30:00Z"
+}
+```
+
+Статусы: `not_loaded`, `loading`, `loaded`, `unloading`, `error`
+
 ## Структура проекта
 
 ```
 ai-api/
-├── main.py           # Точка входа, FastAPI app
-├── config.py         # Конфигурация и переменные окружения
-├── state.py          # Глобальное состояние (загруженные модели)
-├── models/           # Pydantic модели
-│   ├── llm.py        # Модели для LLM запросов/ответов
-│   └── media.py      # Модели для медиа генерации
-├── routes/           # API роуты
-│   ├── health.py     # Health check
-│   ├── llm.py        # LLM endpoints
-│   └── media.py      # Media generation endpoints
-├── services/         # Бизнес-логика
-│   ├── llm.py        # Загрузка и инференс LLM
-│   └── media.py      # Загрузка и генерация медиа
-├── requirements.txt  # Python зависимости
-├── Dockerfile        # Docker образ
-└── .env.example      # Пример конфигурации
+├── main.py              # Точка входа, FastAPI app
+├── config.py            # Конфигурация и переменные окружения
+├── state.py             # Глобальное состояние (загруженные модели)
+├── models/              # Pydantic модели
+│   ├── llm.py           # Модели для LLM запросов/ответов
+│   ├── media.py         # Модели для медиа генерации
+│   └── management.py    # Модели для управления моделями
+├── routes/              # API роуты
+│   ├── health.py        # Health check
+│   ├── llm.py           # LLM endpoints
+│   ├── media.py         # Media generation endpoints
+│   └── models.py        # Model management endpoints
+├── services/            # Бизнес-логика
+│   ├── llm.py           # Инференс LLM
+│   ├── media.py         # Генерация медиа
+│   └── model_manager.py # Динамическая загрузка/выгрузка моделей
+├── requirements.txt     # Python зависимости
+├── Dockerfile           # Docker образ
+└── .env.example         # Пример конфигурации
 ```
 
 ## Примеры использования

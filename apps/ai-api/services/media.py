@@ -3,6 +3,7 @@ Media generation service - image and video generation
 """
 import base64
 import logging
+from datetime import datetime, timezone
 
 import torch
 from PIL import Image
@@ -14,42 +15,104 @@ from config import (
     get_device,
     get_dtype,
 )
-from state import media_models, video_tasks
+from state import media_models, video_tasks, model_status
 
 logger = logging.getLogger(__name__)
 
 
 def load_image_model():
-    """Load image generation model"""
+    """Load image generation model (lazy loading for routes/media.py)"""
     from diffusers import DiffusionPipeline
+    from models.management import ModelType, ModelStatus
 
     logger.info(f"Loading image model: {IMAGE_MODEL}")
-    pipe = DiffusionPipeline.from_pretrained(
-        IMAGE_MODEL,
-        torch_dtype=get_dtype(),
-        trust_remote_code=True,
-    )
-    pipe.to(get_device())
-    if get_device() == "cuda":
-        pipe.enable_model_cpu_offload()
-    logger.info("Image model loaded successfully")
-    return pipe
+
+    # Update status
+    model_status[IMAGE_MODEL] = {
+        "type": ModelType.IMAGE,
+        "status": ModelStatus.LOADING,
+        "error": None,
+        "loaded_at": None,
+    }
+
+    try:
+        pipe = DiffusionPipeline.from_pretrained(
+            IMAGE_MODEL,
+            torch_dtype=get_dtype(),
+            trust_remote_code=True,
+        )
+        pipe.to(get_device())
+        if get_device() == "cuda":
+            pipe.enable_model_cpu_offload()
+
+        # Track model ID for management
+        media_models["image_model_id"] = IMAGE_MODEL
+
+        model_status[IMAGE_MODEL] = {
+            "type": ModelType.IMAGE,
+            "status": ModelStatus.LOADED,
+            "error": None,
+            "loaded_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        logger.info("Image model loaded successfully")
+        return pipe
+
+    except Exception as e:
+        model_status[IMAGE_MODEL] = {
+            "type": ModelType.IMAGE,
+            "status": ModelStatus.ERROR,
+            "error": str(e),
+            "loaded_at": None,
+        }
+        raise
 
 
 def load_video_model():
-    """Load video generation model"""
+    """Load video generation model (lazy loading for routes/media.py)"""
     from diffusers import CogVideoXImageToVideoPipeline
+    from models.management import ModelType, ModelStatus
 
     logger.info(f"Loading video model: {VIDEO_MODEL}")
-    pipe = CogVideoXImageToVideoPipeline.from_pretrained(
-        VIDEO_MODEL,
-        torch_dtype=get_dtype(),
-    )
-    pipe.to(get_device())
-    if get_device() == "cuda":
-        pipe.enable_model_cpu_offload()
-    logger.info("Video model loaded successfully")
-    return pipe
+
+    # Update status
+    model_status[VIDEO_MODEL] = {
+        "type": ModelType.VIDEO,
+        "status": ModelStatus.LOADING,
+        "error": None,
+        "loaded_at": None,
+    }
+
+    try:
+        pipe = CogVideoXImageToVideoPipeline.from_pretrained(
+            VIDEO_MODEL,
+            torch_dtype=get_dtype(),
+        )
+        pipe.to(get_device())
+        if get_device() == "cuda":
+            pipe.enable_model_cpu_offload()
+
+        # Track model ID for management
+        media_models["video_model_id"] = VIDEO_MODEL
+
+        model_status[VIDEO_MODEL] = {
+            "type": ModelType.VIDEO,
+            "status": ModelStatus.LOADED,
+            "error": None,
+            "loaded_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        logger.info("Video model loaded successfully")
+        return pipe
+
+    except Exception as e:
+        model_status[VIDEO_MODEL] = {
+            "type": ModelType.VIDEO,
+            "status": ModelStatus.ERROR,
+            "error": str(e),
+            "loaded_at": None,
+        }
+        raise
 
 
 async def process_video_task(

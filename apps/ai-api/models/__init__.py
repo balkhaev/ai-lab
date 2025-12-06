@@ -8,6 +8,16 @@ from models.media import (
     VideoGenerationRequest,
     VideoTaskResponse,
 )
+from models.management import (
+    ModelType,
+    ModelStatus,
+    ModelInfo,
+    LoadModelRequest,
+    LoadModelResponse,
+    UnloadModelRequest,
+    UnloadModelResponse,
+    ModelsListResponse,
+)
 
 __all__ = [
     "ChatMessage",
@@ -17,4 +27,12 @@ __all__ = [
     "ImageGenerationResponse",
     "VideoGenerationRequest",
     "VideoTaskResponse",
+    "ModelType",
+    "ModelStatus",
+    "ModelInfo",
+    "LoadModelRequest",
+    "LoadModelResponse",
+    "UnloadModelRequest",
+    "UnloadModelResponse",
+    "ModelsListResponse",
 ]

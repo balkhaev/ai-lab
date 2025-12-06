@@ -19,9 +19,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import MODEL_IDS
-from state import llm_engines, model_info, media_models
-from services.llm import load_llm_model
-from routes import health_router, llm_router, media_router
+from state import llm_engines, model_info, media_models, model_status
+from services.model_manager import load_llm_model
+from routes import health_router, llm_router, media_router, models_router
 
 # Configure logging
 logging.basicConfig(
@@ -45,8 +45,9 @@ async def lifespan(app: FastAPI):
         model_id = model_id.strip()
         if model_id:
             try:
-                llm_engines[model_id] = await load_llm_model(model_id)
-                llm_count += 1
+                success = await load_llm_model(model_id)
+                if success:
+                    llm_count += 1
             except Exception as e:
                 logger.error(f"Failed to load model {model_id}: {e}")
 
@@ -69,6 +70,7 @@ async def lifespan(app: FastAPI):
     llm_engines.clear()
     model_info.clear()
     media_models.clear()
+    model_status.clear()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     logger.info("Cleanup complete")
@@ -109,6 +111,10 @@ Currently no authentication is required.
             "name": "Media Generation",
             "description": "Image and video generation endpoints",
         },
+        {
+            "name": "Model Management",
+            "description": "Dynamic model loading, unloading and switching endpoints",
+        },
     ],
 )
 
@@ -125,6 +131,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(llm_router)
 app.include_router(media_router)
+app.include_router(models_router)
 
 
 if __name__ == "__main__":

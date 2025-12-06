@@ -287,3 +287,119 @@ export async function getMediaHealth(): Promise<{
 
   return response.json();
 }
+
+// Model Management API
+export type ModelType = "llm" | "image" | "video";
+export type ModelStatus =
+  | "not_loaded"
+  | "loading"
+  | "loaded"
+  | "unloading"
+  | "error";
+
+export type ModelInfo = {
+  model_id: string;
+  model_type: ModelType;
+  status: ModelStatus;
+  name: string;
+  loaded_at: string | null;
+  memory_usage_mb: number | null;
+  error: string | null;
+};
+
+export type ModelsListResponse = {
+  models: ModelInfo[];
+  gpu_memory_total_mb: number | null;
+  gpu_memory_used_mb: number | null;
+  gpu_memory_free_mb: number | null;
+};
+
+export type LoadModelRequest = {
+  model_id: string;
+  model_type: ModelType;
+  force?: boolean;
+};
+
+export type LoadModelResponse = {
+  model_id: string;
+  status: ModelStatus;
+  message: string;
+};
+
+export type UnloadModelRequest = {
+  model_id: string;
+  model_type: ModelType;
+};
+
+export type UnloadModelResponse = {
+  model_id: string;
+  status: ModelStatus;
+  message: string;
+  freed_memory_mb: number | null;
+};
+
+export async function getModelsList(): Promise<ModelsListResponse> {
+  const response = await fetch(`${API_URL}/api/models`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch models list");
+  }
+
+  return response.json();
+}
+
+export async function loadModel(
+  request: LoadModelRequest
+): Promise<LoadModelResponse> {
+  const response = await fetch(`${API_URL}/api/models/load`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to load model");
+  }
+
+  return response.json();
+}
+
+export async function unloadModel(
+  request: UnloadModelRequest
+): Promise<UnloadModelResponse> {
+  const response = await fetch(`${API_URL}/api/models/unload`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to unload model");
+  }
+
+  return response.json();
+}
+
+export async function switchModel(
+  request: LoadModelRequest
+): Promise<LoadModelResponse> {
+  const response = await fetch(`${API_URL}/api/models/switch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to switch model");
+  }
+
+  return response.json();
+}

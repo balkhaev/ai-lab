@@ -3,6 +3,7 @@
 import {
   ChevronLeft,
   ChevronRight,
+  Cpu,
   Home,
   ImageIcon,
   MessageSquare,
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/image", label: "Изображения", icon: ImageIcon },
   { href: "/video", label: "Видео", icon: Video },
   { href: "/compare", label: "Сравнение LLM", icon: MessageSquare },
+  { href: "/models", label: "Модели", icon: Cpu },
 ] as const;
 
 export function Sidebar() {
