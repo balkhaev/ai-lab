@@ -178,7 +178,7 @@ function ChartTooltipContent({
         className
       )}
     >
-      {nestLabel ? null : tooltipLabel}
+      {!nestLabel && tooltipLabel}
       <div className="grid gap-1.5">
         {payload
           .filter((item) => item.type !== "none")
@@ -195,7 +195,9 @@ function ChartTooltipContent({
                 )}
                 key={item.dataKey}
               >
-                {formatter && item?.value !== undefined && item.name ? (
+                {typeof formatter === "function" &&
+                item?.value !== undefined &&
+                item.name ? (
                   formatter(item.value, item.name, item, index, item.payload)
                 ) : (
                   <>
@@ -211,9 +213,8 @@ function ChartTooltipContent({
                               "w-1": indicator === "line",
                               "w-0 border-[1.5px] border-dashed bg-transparent":
                                 indicator === "dashed",
-                              "my-0.5": Boolean(
-                                nestLabel && indicator === "dashed"
-                              ),
+                              "my-0.5":
+                                Boolean(nestLabel) && indicator === "dashed",
                             }
                           )}
                           style={
@@ -293,7 +294,7 @@ function ChartLegendContent({
               )}
               key={item.value}
             >
-              {itemConfig?.icon && !hideIcon ? (
+              {Boolean(itemConfig?.icon) && !hideIcon ? (
                 <itemConfig.icon />
               ) : (
                 <div

@@ -18,6 +18,19 @@ from models.management import (
     UnloadModelResponse,
     ModelsListResponse,
 )
+from models.queue import (
+    TaskType,
+    TaskStatus,
+    Task,
+    CreateTaskRequest,
+    TaskResponse,
+    TaskResultResponse,
+    TaskListResponse,
+    ImageTaskParams,
+    Image2ImageTaskParams,
+    VideoTaskParams,
+    LLMCompareTaskParams,
+)
 
 __all__ = [
     "ChatMessage",
@@ -35,4 +48,15 @@ __all__ = [
     "UnloadModelRequest",
     "UnloadModelResponse",
     "ModelsListResponse",
+    "TaskType",
+    "TaskStatus",
+    "Task",
+    "CreateTaskRequest",
+    "TaskResponse",
+    "TaskResultResponse",
+    "TaskListResponse",
+    "ImageTaskParams",
+    "Image2ImageTaskParams",
+    "VideoTaskParams",
+    "LLMCompareTaskParams",
 ]

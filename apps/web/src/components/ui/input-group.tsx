@@ -74,12 +74,13 @@ function InputGroupAddon({
   };
 
   return (
-    <div
+    <button
       className={cn(inputGroupAddonVariants({ align }), className)}
       data-align={align}
       data-slot="input-group-addon"
       onClick={handleClick}
       onKeyDown={handleKeyDown}
+      type="button"
       {...props}
     />
   );

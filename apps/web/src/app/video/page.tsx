@@ -7,12 +7,11 @@ import {
   Lightbulb,
   Loader2,
   Play,
-  RefreshCw,
   Upload,
   Video,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,12 +24,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { TaskProgress } from "@/components/ui/task-progress";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  generateVideo,
-  getVideoStatus,
-  type VideoTaskResponse,
-} from "@/lib/api";
+import { useTask } from "@/hooks/use-task";
+import { generateVideo, getTaskResult, type Task } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type GeneratedVideo = {
@@ -46,56 +43,55 @@ export default function VideoPage() {
   const [steps, setSteps] = useState(50);
   const [guidanceScale, setGuidanceScale] = useState(6.0);
   const [numFrames, setNumFrames] = useState(49);
-  const [seed, setSeed] = useState<number | undefined>(undefined);
-  const [currentTask, setCurrentTask] = useState<VideoTaskResponse | null>(
-    null
-  );
+  const [seed, setSeed] = useState<number | null>(null);
+  const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const [currentPrompt, setCurrentPrompt] = useState<string>("");
   const [gallery, setGallery] = useState<GeneratedVideo[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(
-    () => () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
+  // Use the new task polling hook
+  const { task, isCompleted, isFailed } = useTask(currentTaskId, {
+    pollInterval: 2000,
+  });
+
+  // Handle task completion
+  const handleTaskComplete = useCallback(async () => {
+    if (!(currentTaskId && imagePreview)) {
+      return;
+    }
+
+    try {
+      const result = await getTaskResult(currentTaskId);
+      const videoBase64 = result.result?.video_base64 as string | undefined;
+
+      if (videoBase64) {
+        setGallery((prev) => [
+          {
+            video_base64: videoBase64,
+            prompt: currentPrompt,
+            imagePreview,
+          },
+          ...prev,
+        ]);
       }
-    },
-    []
-  );
+    } catch (err) {
+      console.error("Failed to get task result:", err);
+    } finally {
+      setCurrentTaskId(null);
+      setCurrentPrompt("");
+    }
+  }, [currentTaskId, imagePreview, currentPrompt]);
 
-  const pollTaskStatus = useCallback(
-    async (
-      taskId: string,
-      originalImagePreview: string,
-      originalPrompt: string
-    ) => {
-      pollingRef.current = setInterval(async () => {
-        const status = await getVideoStatus(taskId);
-        setCurrentTask(status);
+  // Auto-fetch result when completed
+  if (isCompleted && currentTaskId) {
+    handleTaskComplete();
+  }
 
-        if (status.status === "completed" && status.video_base64) {
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-            pollingRef.current = null;
-          }
-          setGallery((prev) => [
-            {
-              video_base64: status.video_base64 ?? "",
-              prompt: originalPrompt,
-              imagePreview: originalImagePreview,
-            },
-            ...prev,
-          ]);
-          setCurrentTask(null);
-        } else if (status.status === "failed" && pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-      }, 2000);
-    },
-    []
-  );
+  // Clear task on failure after showing error
+  if (isFailed && currentTaskId && task?.error) {
+    // Keep task visible to show error, user can dismiss
+  }
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -106,14 +102,12 @@ export default function VideoPage() {
         num_inference_steps: steps,
         guidance_scale: guidanceScale,
         num_frames: numFrames,
-        seed,
+        seed: seed ?? undefined,
       });
     },
-    onSuccess: (data) => {
-      setCurrentTask(data);
-      if (imagePreview && data.task_id) {
-        pollTaskStatus(data.task_id, imagePreview, prompt);
-      }
+    onSuccess: (data: Task) => {
+      setCurrentTaskId(data.id);
+      setCurrentPrompt(prompt);
     },
   });
 
@@ -175,7 +169,12 @@ export default function VideoPage() {
   };
 
   const isGenerating =
-    mutation.isPending || currentTask?.status === "processing";
+    mutation.isPending || (task && !isFailed && task.status !== "cancelled");
+
+  const handleDismissTask = useCallback(() => {
+    setCurrentTaskId(null);
+    setCurrentPrompt("");
+  }, []);
 
   return (
     <div className="flex h-full flex-col lg:flex-row">
@@ -199,20 +198,23 @@ export default function VideoPage() {
               <Label className="font-medium text-sm">
                 Исходное изображение
               </Label>
-              <div
+              <button
                 aria-label="Область загрузки изображения"
                 className={cn(
-                  "relative rounded-xl border-2 border-dashed p-6 text-center transition-all duration-300",
-                  isDragOver
-                    ? "border-primary bg-primary/5 shadow-[0_0_30px_rgba(255,45,117,0.2)]"
-                    : imagePreview
-                      ? "border-primary/50 bg-primary/5"
-                      : "border-border hover:border-primary/30 hover:bg-secondary/30"
+                  "relative w-full rounded-xl border-2 border-dashed p-6 text-center transition-all duration-300",
+                  Boolean(isDragOver) &&
+                    "border-primary bg-primary/5 shadow-[0_0_30px_rgba(255,45,117,0.2)]",
+                  !isDragOver &&
+                    Boolean(imagePreview) &&
+                    "border-primary/50 bg-primary/5",
+                  !(isDragOver || imagePreview) &&
+                    "border-border hover:border-primary/30 hover:bg-secondary/30"
                 )}
+                onClick={() => fileInputRef.current?.click()}
                 onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
-                role="region"
+                type="button"
               >
                 {imagePreview ? (
                   <div className="relative inline-block">
@@ -257,7 +259,7 @@ export default function VideoPage() {
                   ref={fileInputRef}
                   type="file"
                 />
-              </div>
+              </button>
             </div>
 
             {/* Prompt */}
@@ -301,63 +303,25 @@ export default function VideoPage() {
         </CardGlass>
 
         {/* Current task status */}
-        {currentTask ? (
+        {Boolean(task || mutation.isPending) && (
           <Card className="mb-6 overflow-hidden">
             <CardContent className="pt-6">
-              <div className="flex flex-col items-center gap-4 py-4">
-                {currentTask.status === "processing" ? (
-                  <>
-                    <div className="relative h-16 w-16">
-                      <div className="absolute inset-0 animate-glow-pulse rounded-full border-2 border-primary/50" />
-                      <Loader2 className="h-16 w-16 animate-spin p-3 text-primary" />
-                    </div>
-                    <div className="text-center">
-                      <p className="font-medium">Генерация видео...</p>
-                      <p className="text-muted-foreground text-sm">
-                        Это может занять несколько минут
-                      </p>
-                    </div>
-                  </>
-                ) : currentTask.status === "failed" ? (
-                  <>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-                      <X className="h-8 w-8 text-destructive" />
-                    </div>
-                    <div className="text-center">
-                      <p className="font-medium text-destructive">
-                        Ошибка генерации
-                      </p>
-                      {currentTask.error ? (
-                        <p className="text-destructive/80 text-sm">
-                          {currentTask.error}
-                        </p>
-                      ) : null}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <p className="font-medium">В очереди...</p>
-                  </>
-                )}
-
-                {currentTask.progress !== null ? (
-                  <div className="w-full max-w-xs">
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-                      <div
-                        className="h-2 rounded-full bg-gradient-to-r from-primary to-accent shadow-[0_0_10px_rgba(255,45,117,0.5)] transition-all duration-500"
-                        style={{ width: `${currentTask.progress}%` }}
-                      />
-                    </div>
-                    <p className="mt-2 text-center text-muted-foreground text-xs">
-                      {currentTask.progress}%
-                    </p>
-                  </div>
-                ) : null}
-              </div>
+              <TaskProgress
+                isCreating={mutation.isPending}
+                messages={{
+                  creating: "Создание задачи...",
+                  pending: "В очереди...",
+                  processing: "Генерация видео...",
+                  completed: "Видео готово!",
+                  failed: "Ошибка генерации",
+                }}
+                onCancel={isFailed ? handleDismissTask : null}
+                onRetry={() => mutation.mutate()}
+                task={task}
+              />
             </CardContent>
           </Card>
-        ) : null}
+        )}
 
         {/* Gallery */}
         {gallery.length > 0 && (
@@ -421,7 +385,7 @@ export default function VideoPage() {
         )}
 
         {/* Empty state */}
-        {!(isGenerating || currentTask) && gallery.length === 0 && (
+        {!(isGenerating || task) && gallery.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="mb-4 rounded-full bg-secondary p-4">
               <Video className="h-8 w-8 text-muted-foreground" />
@@ -502,7 +466,7 @@ export default function VideoPage() {
               <Input
                 onChange={(e) => {
                   const val = e.target.value;
-                  setSeed(val ? Number(val) : undefined);
+                  setSeed(val ? Number(val) : null);
                 }}
                 placeholder="Случайный"
                 type="number"

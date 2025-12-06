@@ -6,6 +6,7 @@ import { logger } from "hono/logger";
 import llmRoutes from "./routes/llm";
 import mediaRoutes from "./routes/media";
 import modelsRoutes from "./routes/models";
+import tasksRoutes from "./routes/tasks";
 
 const app = new Hono();
 
@@ -26,6 +27,7 @@ app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 app.route("/api/llm", llmRoutes);
 app.route("/api/media", mediaRoutes);
 app.route("/api/models", modelsRoutes);
+app.route("/api/tasks", tasksRoutes);
 
 app.get("/", (c) => c.text("OK"));
 

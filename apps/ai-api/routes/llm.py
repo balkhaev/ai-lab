@@ -5,11 +5,13 @@ import json
 import time
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from models.llm import ChatRequest, CompareRequest
+from models.queue import TaskType, TaskResponse
 from services.llm import format_chat_prompt, generate_llm_stream
+from services.queue import create_task
 from state import llm_engines, model_info
 
 router = APIRouter(prefix="/api", tags=["LLM"])
@@ -100,11 +102,38 @@ async def chat(request: ChatRequest):
 @router.post(
     "/compare",
     summary="Compare models",
-    description="Compare responses from multiple models for the same prompt",
+    description="Compare responses from multiple models for the same prompt. Use async_mode=true to queue the task.",
 )
-async def compare_models(request: CompareRequest):
-    """Compare multiple models (streaming)"""
+async def compare_models(
+    request: CompareRequest,
+    async_mode: bool = Query(False, description="If true, queue task and return task_id instead of streaming"),
+):
+    """Compare multiple models (streaming or async)"""
     from vllm import SamplingParams
+
+    # Async mode: create task and return immediately
+    if async_mode:
+        task = await create_task(
+            task_type=TaskType.LLM_COMPARE,
+            params={
+                "models": request.models,
+                "messages": [{"role": m.role, "content": m.content} for m in request.messages],
+                "temperature": request.temperature,
+                "top_p": request.top_p,
+                "top_k": request.top_k,
+                "max_tokens": request.max_tokens,
+            },
+        )
+        return TaskResponse(
+            id=task.id,
+            type=task.type,
+            status=task.status,
+            progress=task.progress,
+            error=task.error,
+            created_at=task.created_at,
+            updated_at=task.updated_at,
+            user_id=task.user_id,
+        )
 
     async def generate_comparison():
         start_time = time.time()

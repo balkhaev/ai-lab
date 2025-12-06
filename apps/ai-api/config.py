@@ -67,3 +67,7 @@ ENABLE_VIDEO = os.environ.get("ENABLE_VIDEO", "true").lower() == "true"
 # Output directory
 OUTPUT_DIR = Path("./outputs")
 OUTPUT_DIR.mkdir(exist_ok=True)
+
+# Redis configuration
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
+TASK_TTL_HOURS = int(os.environ.get("TASK_TTL_HOURS", "24"))

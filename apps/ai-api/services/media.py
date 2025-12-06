@@ -51,12 +51,12 @@ def load_image_model(model_id: str | None = None):
     }
 
     try:
-        # Z-Image models need special handling
+        # Z-Image models need trust_remote_code for custom pipeline
         if any(z in target_model for z in ["Z-Image", "z-image"]):
-            from diffusers import ZImagePipeline
-            pipe = ZImagePipeline.from_pretrained(
+            pipe = DiffusionPipeline.from_pretrained(
                 target_model,
                 torch_dtype=get_dtype(),
+                trust_remote_code=True,
                 low_cpu_mem_usage=False,
             )
         else:

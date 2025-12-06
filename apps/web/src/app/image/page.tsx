@@ -64,7 +64,7 @@ export default function ImagePage() {
   );
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
-  const [seed, setSeed] = useState<number | undefined>(undefined);
+  const [seed, setSeed] = useState<number | null>(null);
   const [gallery, setGallery] = useState<GeneratedImage[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [copiedSeed, setCopiedSeed] = useState<number | null>(null);
@@ -145,7 +145,7 @@ export default function ImagePage() {
       height,
       num_inference_steps: steps,
       guidance_scale: guidanceScale,
-      seed,
+      seed: seed ?? undefined,
       model: selectedT2IModel,
     });
   }, [
@@ -172,7 +172,7 @@ export default function ImagePage() {
       strength,
       num_inference_steps: i2iSteps,
       guidance_scale: i2iGuidanceScale,
-      seed,
+      seed: seed ?? undefined,
       model: selectedI2IModel,
     });
   }, [
@@ -642,7 +642,9 @@ export default function ImagePage() {
           {activeTab === "text2image" ? (
             <div className="space-y-6">
               {/* Model selector */}
-              {t2iModelsData && t2iModelsData.models.length > 0 ? (
+              {t2iModelsData !== null &&
+              t2iModelsData !== undefined &&
+              t2iModelsData.models.length > 0 ? (
                 <div className="space-y-3">
                   <Label className="font-medium text-sm">Модель</Label>
                   <Select
@@ -770,7 +772,7 @@ export default function ImagePage() {
                 <Input
                   onChange={(e) => {
                     const val = e.target.value;
-                    setSeed(val ? Number(val) : undefined);
+                    setSeed(val ? Number(val) : null);
                   }}
                   placeholder="Случайный"
                   type="number"
@@ -784,7 +786,9 @@ export default function ImagePage() {
           ) : (
             <div className="space-y-6">
               {/* Model selector */}
-              {i2iModelsData && i2iModelsData.models.length > 0 ? (
+              {i2iModelsData !== null &&
+              i2iModelsData !== undefined &&
+              i2iModelsData.models.length > 0 ? (
                 <div className="space-y-3">
                   <Label className="font-medium text-sm">Модель</Label>
                   <Select
@@ -885,7 +889,7 @@ export default function ImagePage() {
                 <Input
                   onChange={(e) => {
                     const val = e.target.value;
-                    setSeed(val ? Number(val) : undefined);
+                    setSeed(val ? Number(val) : null);
                   }}
                   placeholder="Случайный"
                   type="number"

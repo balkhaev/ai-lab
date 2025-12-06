@@ -19,10 +19,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html
 
-from config import MODEL_IDS
+from config import MODEL_IDS, REDIS_URL
 from state import llm_engines, model_info, media_models, model_status
 from services.model_manager import load_llm_model
-from routes import health_router, llm_router, media_router, models_router
+from services.queue import close_redis
+from services.worker import start_worker, stop_worker
+from routes import health_router, llm_router, media_router, models_router, queue_router
 
 # Configure logging
 logging.basicConfig(
@@ -52,6 +54,10 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error(f"Failed to load model {model_id}: {e}")
 
+    # Start task queue worker
+    logger.info("Starting task queue worker...")
+    await start_worker()
+
     # Log initialization complete
     logger.info("=" * 60)
     logger.info("AI API initialization complete!")
@@ -60,6 +66,7 @@ async def lifespan(app: FastAPI):
     if torch.cuda.is_available():
         logger.info(f"  - GPU: {torch.cuda.get_device_name(0)}")
         logger.info(f"  - GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+    logger.info(f"  - Redis: {REDIS_URL}")
     logger.info("  - Swagger UI: http://0.0.0.0:8000/docs")
     logger.info("  - ReDoc: http://0.0.0.0:8000/redoc")
     logger.info("=" * 60)
@@ -68,6 +75,13 @@ async def lifespan(app: FastAPI):
 
     # Cleanup
     logger.info("AI API shutting down...")
+    
+    # Stop worker
+    await stop_worker()
+    
+    # Close Redis
+    await close_redis()
+    
     llm_engines.clear()
     model_info.clear()
     media_models.clear()
@@ -116,6 +130,10 @@ Currently no authentication is required.
             "name": "Model Management",
             "description": "Dynamic model loading, unloading and switching endpoints",
         },
+        {
+            "name": "Task Queue",
+            "description": "Async task queue management endpoints",
+        },
     ],
 )
 
@@ -143,6 +161,7 @@ app.include_router(health_router)
 app.include_router(llm_router)
 app.include_router(media_router)
 app.include_router(models_router)
+app.include_router(queue_router)
 
 
 if __name__ == "__main__":

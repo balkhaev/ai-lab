@@ -330,7 +330,8 @@ export default function ComparePage() {
                   <Skeleton className="h-8 w-full" />
                   <Skeleton className="h-8 w-full" />
                 </div>
-              ) : models ? (
+              ) : null}
+              {!modelsLoading && models ? (
                 <div className="space-y-2">
                   {models.map((model) => (
                     <label
@@ -354,7 +355,8 @@ export default function ComparePage() {
                     </label>
                   ))}
                 </div>
-              ) : (
+              ) : null}
+              {modelsLoading || models ? null : (
                 <p className="rounded-lg border border-border border-dashed p-4 text-center text-muted-foreground text-sm">
                   Нет доступных моделей. Проверьте подключение к LLM сервису.
                 </p>
@@ -404,7 +406,7 @@ export default function ComparePage() {
               </Button>
             ) : null}
 
-            {models &&
+            {Array.isArray(models) &&
             models.length > 0 &&
             selectedModels.length < models.length ? (
               <Button

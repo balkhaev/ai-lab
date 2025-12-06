@@ -1,14 +1,12 @@
 """
 Media generation endpoints - image and video
 """
-import asyncio
 import base64
 import io
 import time
-import uuid
 
 import torch
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query
 from PIL import Image
 
 from config import ENABLE_IMAGE, ENABLE_IMAGE2IMAGE, ENABLE_VIDEO, IMAGE_MODELS, IMAGE2IMAGE_MODELS, get_device
@@ -18,8 +16,10 @@ from models.media import (
     Image2ImageResponse,
     VideoTaskResponse,
 )
-from services.media import load_image_model, load_image2image_model, process_video_task
-from state import media_models, video_tasks
+from models.queue import TaskType, TaskResponse
+from services.media import load_image_model, load_image2image_model
+from services.queue import create_task, get_task
+from state import media_models
 
 router = APIRouter(prefix="/generate", tags=["Media Generation"])
 
@@ -54,21 +54,17 @@ async def get_image2image_models():
 
 @router.post(
     "/image",
-    response_model=ImageGenerationResponse,
     summary="Generate image",
-    description="Generate an image from a text prompt using a diffusion model",
+    description="Generate an image from a text prompt using a diffusion model. Use async_mode=true to queue the task.",
 )
-async def generate_image(request: ImageGenerationRequest):
+async def generate_image(
+    request: ImageGenerationRequest,
+    async_mode: bool = Query(False, description="If true, queue task and return task_id instead of waiting"),
+):
     """Generate image using diffusion model"""
     if not ENABLE_IMAGE:
         raise HTTPException(status_code=503, detail="Image generation is disabled")
 
-    start_time = time.time()
-
-    # Check if we need to load a different model
-    current_model = media_models.get("image_model_id")
-    requested_model = request.model if request.model else current_model
-    
     # Validate model if specified
     if request.model and request.model not in IMAGE_MODELS:
         raise HTTPException(
@@ -76,6 +72,38 @@ async def generate_image(request: ImageGenerationRequest):
             detail=f"Invalid model. Available models: {IMAGE_MODELS}"
         )
 
+    # Async mode: create task and return immediately
+    if async_mode:
+        task = await create_task(
+            task_type=TaskType.IMAGE,
+            params={
+                "prompt": request.prompt,
+                "negative_prompt": request.negative_prompt,
+                "width": request.width,
+                "height": request.height,
+                "num_inference_steps": request.num_inference_steps,
+                "guidance_scale": request.guidance_scale,
+                "seed": request.seed,
+                "model": request.model,
+            },
+        )
+        return TaskResponse(
+            id=task.id,
+            type=task.type,
+            status=task.status,
+            progress=task.progress,
+            error=task.error,
+            created_at=task.created_at,
+            updated_at=task.updated_at,
+            user_id=task.user_id,
+        )
+
+    # Sync mode: generate immediately
+    start_time = time.time()
+
+    # Check if we need to load a different model
+    current_model = media_models.get("image_model_id")
+    
     # Lazy load model or switch if different model requested
     if "image" not in media_models or (request.model and request.model != current_model):
         media_models["image"] = load_image_model(request.model)
@@ -112,9 +140,8 @@ async def generate_image(request: ImageGenerationRequest):
 
 @router.post(
     "/image2image",
-    response_model=Image2ImageResponse,
     summary="Transform image with prompt",
-    description="Transform an existing image based on a text prompt (image-to-image generation)",
+    description="Transform an existing image based on a text prompt. Use async_mode=true to queue the task.",
 )
 async def generate_image2image(
     image: UploadFile = File(..., description="Input image to transform"),
@@ -124,22 +151,13 @@ async def generate_image2image(
     num_inference_steps: int = Form(default=30, description="Number of inference steps"),
     guidance_scale: float = Form(default=7.5, description="Guidance scale"),
     seed: int | None = Form(default=None, description="Random seed"),
-    model: str | None = Form(default=None, description="Model to use (optional, uses default if not specified)"),
+    model: str | None = Form(default=None, description="Model to use (optional)"),
+    async_mode: bool = Form(default=False, description="If true, queue task and return task_id"),
 ):
     """Transform image using image-to-image diffusion model"""
     if not ENABLE_IMAGE2IMAGE:
         raise HTTPException(status_code=503, detail="Image-to-image generation is disabled")
 
-    start_time = time.time()
-
-    # Read and process input image
-    contents = await image.read()
-    pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
-
-    # Check if we need to load a different model
-    current_model = media_models.get("image2image_model_id")
-    requested_model = model if model else current_model
-    
     # Validate model if specified
     if model and model not in IMAGE2IMAGE_MODELS:
         raise HTTPException(
@@ -147,6 +165,46 @@ async def generate_image2image(
             detail=f"Invalid model. Available models: {IMAGE2IMAGE_MODELS}"
         )
 
+    # Read and process input image
+    contents = await image.read()
+    
+    # Async mode: create task and return immediately
+    if async_mode:
+        # Encode image to base64 for storage
+        image_base64 = base64.b64encode(contents).decode("utf-8")
+        
+        task = await create_task(
+            task_type=TaskType.IMAGE2IMAGE,
+            params={
+                "prompt": prompt,
+                "image_base64": image_base64,
+                "negative_prompt": negative_prompt,
+                "strength": strength,
+                "num_inference_steps": num_inference_steps,
+                "guidance_scale": guidance_scale,
+                "seed": seed,
+                "model": model,
+            },
+        )
+        return TaskResponse(
+            id=task.id,
+            type=task.type,
+            status=task.status,
+            progress=task.progress,
+            error=task.error,
+            created_at=task.created_at,
+            updated_at=task.updated_at,
+            user_id=task.user_id,
+        )
+
+    # Sync mode: generate immediately
+    start_time = time.time()
+    
+    pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
+
+    # Check if we need to load a different model
+    current_model = media_models.get("image2image_model_id")
+    
     # Lazy load model or switch if different model requested
     if "image2image" not in media_models or (model and model != current_model):
         media_models["image2image"] = load_image2image_model(model)
@@ -170,12 +228,12 @@ async def generate_image2image(
 
     buffer = io.BytesIO()
     output_image.save(buffer, format="PNG")
-    image_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    result_image_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
     generation_time = time.time() - start_time
 
     return Image2ImageResponse(
-        image_base64=image_base64,
+        image_base64=result_image_base64,
         seed=actual_seed,
         generation_time=generation_time,
     )
@@ -183,9 +241,9 @@ async def generate_image2image(
 
 @router.post(
     "/video",
-    response_model=VideoTaskResponse,
+    response_model=TaskResponse,
     summary="Start video generation",
-    description="Start an async video generation task from an input image and text prompt",
+    description="Start an async video generation task from an input image and text prompt. Uses Redis queue.",
 )
 async def generate_video(
     image: UploadFile = File(..., description="Input image for video generation"),
@@ -195,31 +253,37 @@ async def generate_video(
     num_frames: int = Form(default=49, description="Number of frames to generate"),
     seed: int | None = Form(default=None, description="Random seed"),
 ):
-    """Start video generation task"""
+    """Start video generation task using Redis queue"""
     if not ENABLE_VIDEO:
         raise HTTPException(status_code=503, detail="Video generation is disabled")
 
     contents = await image.read()
-    pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
+    
+    # Encode image to base64 for storage in Redis
+    image_base64 = base64.b64encode(contents).decode("utf-8")
 
-    task_id = str(uuid.uuid4())
-    video_tasks[task_id] = {
-        "status": "pending",
-        "progress": 0.0,
-        "video_base64": None,
-        "error": None,
-    }
+    # Create task in Redis queue
+    task = await create_task(
+        task_type=TaskType.VIDEO,
+        params={
+            "prompt": prompt,
+            "image_base64": image_base64,
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            "num_frames": num_frames,
+            "seed": seed,
+        },
+    )
 
-    # Start background task
-    asyncio.create_task(process_video_task(
-        task_id, pil_image, prompt,
-        num_inference_steps, guidance_scale, num_frames, seed
-    ))
-
-    return VideoTaskResponse(
-        task_id=task_id,
-        status="pending",
-        progress=0.0,
+    return TaskResponse(
+        id=task.id,
+        type=task.type,
+        status=task.status,
+        progress=task.progress,
+        error=task.error,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+        user_id=task.user_id,
     )
 
 
@@ -227,18 +291,21 @@ async def generate_video(
     "/video/status/{task_id}",
     response_model=VideoTaskResponse,
     summary="Get video generation status",
-    description="Check the status of a video generation task",
+    description="Check the status of a video generation task. Works with both old and new task IDs.",
 )
 async def get_video_status(task_id: str):
-    """Get video generation task status"""
-    if task_id not in video_tasks:
+    """Get video generation task status from Redis"""
+    task = await get_task(task_id)
+    
+    if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    task = video_tasks[task_id]
+    # Return in legacy format for backwards compatibility
+    result = task.result or {}
     return VideoTaskResponse(
         task_id=task_id,
-        status=task["status"],
-        progress=task.get("progress"),
-        video_base64=task.get("video_base64"),
-        error=task.get("error"),
+        status=task.status.value,
+        progress=task.progress,
+        video_base64=result.get("video_base64"),
+        error=task.error,
     )

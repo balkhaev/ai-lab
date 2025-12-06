@@ -274,13 +274,13 @@ function ModelCard({
               )}
               variant="outline"
             >
-              {model.status === "loading" || model.status === "unloading" ? (
+              {(model.status === "loading" || model.status === "unloading") && (
                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              ) : model.status === "loaded" ? (
-                <Check className="mr-1 h-3 w-3" />
-              ) : model.status === "error" ? (
+              )}
+              {model.status === "loaded" && <Check className="mr-1 h-3 w-3" />}
+              {model.status === "error" && (
                 <AlertCircle className="mr-1 h-3 w-3" />
-              ) : null}
+              )}
               {statusConfig.label}
             </Badge>
           </div>

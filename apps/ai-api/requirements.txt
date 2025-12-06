@@ -20,3 +20,5 @@ hf_transfer
 pillow>=10.0.0
 imageio[ffmpeg]
 
+# Redis for task queue
+redis>=5.0.0

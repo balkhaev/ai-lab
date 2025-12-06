@@ -323,7 +323,7 @@ export async function generateVideo(
     num_frames?: number;
     seed?: number;
   }
-): Promise<VideoTaskResponse> {
+): Promise<Task> {
   const formData = new FormData();
   formData.append("image", image);
   formData.append("prompt", prompt);
@@ -355,7 +355,7 @@ export async function generateVideo(
     throw new Error(`Failed to start video generation: ${error}`);
   }
 
-  return response.json() as Promise<VideoTaskResponse>;
+  return response.json() as Promise<Task>;
 }
 
 export async function getVideoStatus(
@@ -503,6 +503,146 @@ export async function switchModel(
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.detail || "Failed to switch model");
+  }
+
+  return response.json();
+}
+
+// Task Queue API
+export type TaskType = "video" | "image" | "image2image" | "llm_compare";
+export type TaskStatus =
+  | "pending"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type Task = {
+  id: string;
+  type: TaskType;
+  status: TaskStatus;
+  progress: number;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+  user_id: string | null;
+};
+
+export type TaskResult = {
+  id: string;
+  type: TaskType;
+  status: TaskStatus;
+  result: Record<string, unknown> | null;
+  error: string | null;
+};
+
+export type TaskListResponse = {
+  tasks: Task[];
+  total: number;
+};
+
+export type QueueStats = {
+  pending: number;
+  processing: number;
+};
+
+export type CreateTaskParams = {
+  type: TaskType;
+  params: Record<string, unknown>;
+  user_id?: string;
+};
+
+export async function createTask(request: CreateTaskParams): Promise<Task> {
+  const response = await fetch(`${API_URL}/api/tasks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to create task: ${error}`);
+  }
+
+  return response.json();
+}
+
+export async function getTask(taskId: string): Promise<Task> {
+  const response = await fetch(`${API_URL}/api/tasks/${taskId}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("Task not found");
+    }
+    throw new Error("Failed to get task status");
+  }
+
+  return response.json();
+}
+
+export async function getTaskResult(taskId: string): Promise<TaskResult> {
+  const response = await fetch(`${API_URL}/api/tasks/${taskId}/result`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("Task not found");
+    }
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to get task result");
+  }
+
+  return response.json();
+}
+
+export async function cancelTask(taskId: string): Promise<Task> {
+  const response = await fetch(`${API_URL}/api/tasks/${taskId}/cancel`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error("Task not found");
+    }
+    throw new Error("Failed to cancel task");
+  }
+
+  return response.json();
+}
+
+export async function getTasks(
+  userId?: string,
+  limit = 20
+): Promise<TaskListResponse> {
+  const params = new URLSearchParams();
+  if (userId) {
+    params.set("user_id", userId);
+  }
+  params.set("limit", limit.toString());
+
+  const response = await fetch(`${API_URL}/api/tasks?${params.toString()}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to list tasks");
+  }
+
+  return response.json();
+}
+
+export async function getQueueStats(): Promise<QueueStats> {
+  const response = await fetch(`${API_URL}/api/tasks/stats`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to get queue stats");
   }
 
   return response.json();

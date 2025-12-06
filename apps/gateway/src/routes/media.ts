@@ -30,12 +30,25 @@ type Image2ImageResponse = {
   generation_time: number;
 };
 
+// Legacy format for backwards compatibility
 type VideoTaskResponse = {
   task_id: string;
   status: "pending" | "processing" | "completed" | "failed";
   progress: number | null;
   video_base64: string | null;
   error: string | null;
+};
+
+// New task format from queue system
+type TaskResponse = {
+  id: string;
+  type: "video" | "image" | "image2image" | "llm_compare";
+  status: "pending" | "processing" | "completed" | "failed" | "cancelled";
+  progress: number;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+  user_id: string | null;
 };
 
 type HealthResponse = {
@@ -125,7 +138,7 @@ media.post("/image2image", async (c) => {
   return c.json(data);
 });
 
-// Generate video (start task)
+// Generate video (start task) - now returns Task from queue system
 media.post("/video", async (c) => {
   const formData = await c.req.formData();
 
@@ -140,7 +153,7 @@ media.post("/video", async (c) => {
     return c.json({ error: `Failed to start video generation: ${error}` }, 500);
   }
 
-  const data = (await response.json()) as VideoTaskResponse;
+  const data = (await response.json()) as TaskResponse;
   return c.json(data);
 });
 
