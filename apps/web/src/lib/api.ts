@@ -55,10 +55,33 @@ export function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+export type LLMPromptFormat = "chatml" | "mistral" | "llama2" | "alpaca";
+
+export type LLMPreset = {
+  model_id: string;
+  name: string;
+  description: string;
+  prompt_format: LLMPromptFormat;
+  temperature: number;
+  top_p: number;
+  top_k: number;
+  max_tokens: number;
+  min_temperature: number;
+  max_temperature: number;
+  supports_system_prompt: boolean;
+  supports_vision: boolean;
+};
+
 export type Model = {
   name: string;
   size: number;
   modified_at: string;
+  preset: LLMPreset | null;
+};
+
+export type LLMModelsResponse = {
+  models: Model[];
+  presets: Record<string, LLMPreset>;
 };
 
 export type ImageGenerationParams = {
@@ -154,8 +177,23 @@ export async function getModels(): Promise<Model[]> {
     throw new Error("Failed to fetch models");
   }
 
-  const data = (await response.json()) as { models: Model[] };
+  const data = (await response.json()) as LLMModelsResponse;
   return data.models;
+}
+
+export async function getLLMPresets(): Promise<Record<string, LLMPreset>> {
+  const response = await fetch(`${API_URL}/api/llm/presets`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch LLM presets");
+  }
+
+  const data = (await response.json()) as {
+    presets: Record<string, LLMPreset>;
+  };
+  return data.presets;
 }
 
 export async function chatWithModel(

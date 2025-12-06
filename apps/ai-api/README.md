@@ -30,10 +30,6 @@ source .venv/bin/activate
 # Установка зависимостей
 pip install -r requirements.txt
 
-# ВАЖНО: Для поддержки Z-Image моделей (Tongyi-MAI/Z-Image-Turbo)
-# требуется последняя версия diffusers из git:
-pip install git+https://github.com/huggingface/diffusers.git -U
-
 # Конфигурация
 cp .env.example .env
 # Отредактируйте .env под ваши нужды

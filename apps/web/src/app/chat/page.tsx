@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardGlass } from "@/components/ui/card";
@@ -73,12 +73,33 @@ export default function ChatPage() {
     queryFn: getModels,
   });
 
+  // Get current model's preset
+  const currentPreset = useMemo(() => {
+    if (!(models && selectedModel)) {
+      return null;
+    }
+    const model = models.find((m) => m.name === selectedModel);
+    return model?.preset ?? null;
+  }, [models, selectedModel]);
+
   // Set default model when models load
   useEffect(() => {
     if (models && models.length > 0 && !selectedModel) {
       setSelectedModel(models[0].name);
     }
   }, [models, selectedModel]);
+
+  // Apply preset settings when model changes
+  const handleModelChange = useCallback(
+    (modelName: string) => {
+      setSelectedModel(modelName);
+      const model = models?.find((m) => m.name === modelName);
+      if (model?.preset) {
+        setTemperature(model.preset.temperature);
+      }
+    },
+    [models]
+  );
 
   // Auto-scroll to bottom when new messages are added
   const messagesLength = messages.length;
@@ -504,19 +525,31 @@ export default function ChatPage() {
               {modelsLoading ? (
                 <Skeleton className="h-10 w-full" />
               ) : (
-                <Select onValueChange={setSelectedModel} value={selectedModel}>
+                <Select onValueChange={handleModelChange} value={selectedModel}>
                   <SelectTrigger>
                     <SelectValue placeholder="Выберите модель" />
                   </SelectTrigger>
                   <SelectContent>
                     {models?.map((model) => (
                       <SelectItem key={model.name} value={model.name}>
-                        {model.name}
+                        <div className="flex items-center gap-2">
+                          <span>{model.preset?.name ?? model.name}</span>
+                          {model.preset?.supports_vision === true ? (
+                            <Badge className="text-[10px]" variant="secondary">
+                              VL
+                            </Badge>
+                          ) : null}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
+              {currentPreset ? (
+                <p className="text-muted-foreground text-xs">
+                  {currentPreset.description}
+                </p>
+              ) : null}
             </div>
 
             {/* Temperature slider */}
@@ -528,14 +561,16 @@ export default function ChatPage() {
                 </span>
               </div>
               <Slider
-                max={2}
-                min={0}
+                max={currentPreset?.max_temperature ?? 2}
+                min={currentPreset?.min_temperature ?? 0}
                 onValueChange={([v]) => setTemperature(v)}
                 step={0.1}
                 value={[temperature]}
               />
               <p className="text-muted-foreground text-xs">
-                Выше = более креативные ответы
+                {currentPreset
+                  ? `Рекомендуется: ${currentPreset.temperature.toFixed(1)}`
+                  : "Выше = более креативные ответы"}
               </p>
             </div>
 
