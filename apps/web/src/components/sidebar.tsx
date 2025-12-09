@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Cpu,
-  GitCompare,
   Home,
   ImageIcon,
   MessageSquare,
@@ -28,7 +27,6 @@ const navItems: {
   { href: "/image", label: "Изображения", icon: ImageIcon },
   { href: "/video", label: "Видео", icon: Video },
   { href: "/3d", label: "3D", icon: Boxes },
-  { href: "/compare", label: "Сравнение LLM", icon: GitCompare },
   { href: "/models", label: "Модели", icon: Cpu },
 ];
 
