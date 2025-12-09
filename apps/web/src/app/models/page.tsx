@@ -65,7 +65,16 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-const MODEL_TYPE_CONFIG = {
+const MODEL_TYPE_CONFIG: Record<
+  ModelType,
+  {
+    label: string;
+    icon: typeof Cpu;
+    color: string;
+    bgColor: string;
+    borderColor: string;
+  }
+> = {
   llm: {
     label: "LLM",
     icon: Cpu,
@@ -94,7 +103,14 @@ const MODEL_TYPE_CONFIG = {
     bgColor: "bg-pink-500/10",
     borderColor: "border-pink-500/30",
   },
-} as const;
+  image_to_3d: {
+    label: "3D",
+    icon: Box,
+    color: "text-emerald-500",
+    bgColor: "bg-emerald-500/10",
+    borderColor: "border-emerald-500/30",
+  },
+};
 
 const STATUS_CONFIG: Record<
   ModelStatus,
@@ -709,6 +725,14 @@ export default function ModelsPage() {
       return "video";
     }
     if (
+      lowerRepoId.includes("3d") ||
+      lowerRepoId.includes("hunyuanworld") ||
+      lowerRepoId.includes("depth") ||
+      lowerRepoId.includes("gaussian")
+    ) {
+      return "image_to_3d";
+    }
+    if (
       lowerRepoId.includes("sdxl") ||
       lowerRepoId.includes("stable-diffusion") ||
       lowerRepoId.includes("z-image") ||
@@ -878,11 +902,11 @@ export default function ModelsPage() {
                 {cachedModels.length > 0 && (
                   <Badge variant="secondary">{cachedModels.length}</Badge>
                 )}
-                {cacheData && (
+                {cacheData ? (
                   <span className="ml-2 font-mono text-muted-foreground text-sm">
                     ({formatBytesFromBytes(cacheData.total_size_bytes)})
                   </span>
-                )}
+                ) : null}
               </h2>
               <Button
                 disabled={isCacheRefetching}
@@ -939,7 +963,7 @@ export default function ModelsPage() {
             ) : null}
 
             {/* Cached models grid */}
-            {cacheData && cachedModels.length > 0 ? (
+            {Boolean(cacheData) && cachedModels.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {cachedModels.map((model) => (
                   <CachedModelCard
@@ -955,7 +979,9 @@ export default function ModelsPage() {
             ) : null}
 
             {/* Empty cache state */}
-            {cacheData && cachedModels.length === 0 && !isCacheLoading && (
+            {Boolean(cacheData) &&
+            cachedModels.length === 0 &&
+            !isCacheLoading ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                   <div className="mb-4 rounded-full bg-secondary p-4">
@@ -975,7 +1001,7 @@ export default function ModelsPage() {
                   </Button>
                 </CardContent>
               </Card>
-            )}
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -1058,6 +1084,12 @@ export default function ModelsPage() {
                     <span className="flex items-center gap-2">
                       <Video className="h-4 w-4 text-pink-500" />
                       Video (генерация видео)
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="image_to_3d">
+                    <span className="flex items-center gap-2">
+                      <Box className="h-4 w-4 text-emerald-500" />
+                      3D (реконструкция)
                     </span>
                   </SelectItem>
                 </SelectContent>

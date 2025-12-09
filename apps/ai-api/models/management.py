@@ -12,6 +12,7 @@ class ModelType(str, Enum):
     IMAGE = "image"
     IMAGE2IMAGE = "image2image"
     VIDEO = "video"
+    IMAGE_TO_3D = "image_to_3d"
 
 
 class ModelStatus(str, Enum):

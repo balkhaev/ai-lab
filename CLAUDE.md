@@ -65,12 +65,14 @@ packages/
 - `image` — text-to-image (Diffusers)
 - `image2image` — image-to-image transformation
 - `video` — text-to-video / image-to-video
+- `image_to_3d` — image-to-3D reconstruction (point clouds, depth, normals, gaussians)
 
 **Типы задач** (`TaskType`):
 
 - `video` — генерация видео (асинхронно)
 - `image` — генерация изображений
 - `image2image` — трансформация изображений
+- `image_to_3d` — 3D-реконструкция из изображения
 - `llm_compare` — сравнение ответов нескольких LLM
 
 #### gateway — Бизнес-логика
@@ -156,6 +158,12 @@ web                    gateway                 ai-api
 | CogVideoX-5b-I2V | ~24GB | Good quality I2V      |
 | HunyuanVideo     | ~60GB | Highest quality T2V   |
 
+**Image-to-3D Models:**
+
+| Модель              | VRAM  | Outputs                                         |
+| ------------------- | ----- | ----------------------------------------------- |
+| HunyuanWorld-Mirror | ~16GB | Point clouds, depth maps, normals, 3D Gaussians |
+
 ### Переменные окружения
 
 **ai-api:**
@@ -167,7 +175,8 @@ web                    gateway                 ai-api
 - `IMAGE_MODEL` — модель для text-to-image
 - `IMAGE2IMAGE_MODEL` — модель для img2img
 - `VIDEO_MODEL` — модель для video generation
-- `ENABLE_IMAGE` / `ENABLE_IMAGE2IMAGE` / `ENABLE_VIDEO` — включить/выключить
+- `IMAGE_TO_3D_MODEL` — модель для image-to-3D
+- `ENABLE_IMAGE` / `ENABLE_IMAGE2IMAGE` / `ENABLE_VIDEO` / `ENABLE_IMAGE_TO_3D` — включить/выключить
 - `REDIS_URL` — URL Redis для task queue
 - `TASK_TTL_HOURS` — время жизни задач в часах
 
@@ -210,7 +219,7 @@ web                    gateway                 ai-api
 
 - `services/orchestrator.py` — ModelOrchestrator, управление GPU памятью
 - `services/queue.py` — Redis task queue
-- `services/loaders/` — загрузчики моделей (llm, image, video)
+- `services/loaders/` — загрузчики моделей (llm, image, video, image_to_3d)
 - `routes/` — API endpoints (health, llm, media, models, queue)
 
 **gateway:**

@@ -16,10 +16,13 @@ from config import (
     ENABLE_IMAGE,
     ENABLE_IMAGE2IMAGE,
     ENABLE_VIDEO,
+    ENABLE_IMAGE_TO_3D,
     IMAGE_MODEL,
     IMAGE_MODELS,
     IMAGE2IMAGE_MODEL,
     IMAGE2IMAGE_MODELS,
+    IMAGE_TO_3D_MODEL,
+    IMAGE_TO_3D_MODELS,
     get_device,
 )
 from models.management import ModelType
@@ -28,6 +31,8 @@ from models.media import (
     ImageGenerationResponse,
     Image2ImageResponse,
     VideoTaskResponse,
+    ImageTo3DResponse,
+    ImageTo3DTaskResponse,
 )
 from models.queue import TaskType, TaskResponse
 from services.orchestrator import orchestrator
@@ -304,5 +309,133 @@ async def get_video_status(task_id: str):
         status=task.status.value,
         progress=task.progress,
         video_base64=result.get("video_base64"),
+        error=task.error,
+    )
+
+
+# ==================== Image-to-3D Endpoints ====================
+
+
+@router.get(
+    "/image-to-3d/models",
+    summary="Get available image-to-3D models",
+    description="Returns list of available models for image-to-3D generation",
+)
+async def get_image_to_3d_models():
+    """Get list of available image-to-3D models"""
+    image_to_3d_model = orchestrator.get_by_type(ModelType.IMAGE_TO_3D)
+    current_model = image_to_3d_model.model_id if image_to_3d_model else None
+    return {
+        "models": IMAGE_TO_3D_MODELS,
+        "current_model": current_model,
+    }
+
+
+@router.post(
+    "/image-to-3d",
+    response_model=TaskResponse,
+    summary="Generate 3D from image",
+    description="Generate 3D representation (point cloud, depth, normals, gaussians) from an input image. "
+                "This is an async operation - returns a task ID to poll for results.",
+)
+async def generate_image_to_3d(
+    image: UploadFile = File(..., description="Input image for 3D reconstruction"),
+    model: str | None = Form(default=None, description="Model to use (optional)"),
+    camera_intrinsics: str | None = Form(
+        default=None,
+        description="Camera intrinsics as JSON: [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]"
+    ),
+    camera_pose: str | None = Form(
+        default=None,
+        description="Camera pose as JSON: 4x4 transformation matrix"
+    ),
+):
+    """Generate 3D representation from image using HunyuanWorld-Mirror"""
+    import json
+    
+    if not ENABLE_IMAGE_TO_3D:
+        raise HTTPException(status_code=503, detail="Image-to-3D generation is disabled")
+
+    if model and model not in IMAGE_TO_3D_MODELS:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid model. Available models: {IMAGE_TO_3D_MODELS}"
+        )
+
+    model_id = model or IMAGE_TO_3D_MODEL
+    
+    # Read and encode image
+    contents = await image.read()
+    image_base64 = base64.b64encode(contents).decode("utf-8")
+    
+    # Parse optional camera parameters
+    parsed_intrinsics = None
+    parsed_pose = None
+    
+    if camera_intrinsics:
+        try:
+            parsed_intrinsics = json.loads(camera_intrinsics)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid camera_intrinsics JSON")
+    
+    if camera_pose:
+        try:
+            parsed_pose = json.loads(camera_pose)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid camera_pose JSON")
+
+    # Create async task (image-to-3D is heavy, always async)
+    task = await create_task(
+        task_type=TaskType.IMAGE_TO_3D,
+        params={
+            "image_base64": image_base64,
+            "model": model_id,
+            "camera_intrinsics": parsed_intrinsics,
+            "camera_pose": parsed_pose,
+        },
+    )
+
+    return TaskResponse(
+        id=task.id,
+        type=task.type,
+        status=task.status,
+        progress=task.progress,
+        error=task.error,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+        user_id=task.user_id,
+    )
+
+
+@router.get(
+    "/image-to-3d/status/{task_id}",
+    response_model=ImageTo3DTaskResponse,
+    summary="Get image-to-3D generation status",
+    description="Check the status of an image-to-3D generation task.",
+)
+async def get_image_to_3d_status(task_id: str):
+    """Get image-to-3D generation task status from Redis"""
+    task = await get_task(task_id)
+    
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    result_data = None
+    if task.result:
+        result_data = ImageTo3DResponse(
+            point_cloud_ply_base64=task.result.get("point_cloud_ply_base64"),
+            point_cloud_array=task.result.get("point_cloud_array"),
+            depth_map=task.result.get("depth_map"),
+            normal_map=task.result.get("normal_map"),
+            camera_params=task.result.get("camera_params"),
+            gaussians=task.result.get("gaussians"),
+            generation_time=task.result.get("generation_time", 0.0),
+        )
+    
+    return ImageTo3DTaskResponse(
+        task_id=task_id,
+        status=task.status.value,
+        progress=task.progress,
+        result=result_data,
         error=task.error,
     )

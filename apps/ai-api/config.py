@@ -63,6 +63,15 @@ VIDEO_MODELS = [
 ENABLE_IMAGE = os.environ.get("ENABLE_IMAGE", "true").lower() == "true"
 ENABLE_IMAGE2IMAGE = os.environ.get("ENABLE_IMAGE2IMAGE", "true").lower() == "true"
 ENABLE_VIDEO = os.environ.get("ENABLE_VIDEO", "true").lower() == "true"
+ENABLE_IMAGE_TO_3D = os.environ.get("ENABLE_IMAGE_TO_3D", "true").lower() == "true"
+
+# Image-to-3D models - generates 3D representations from images
+# Supports: point clouds, depth maps, camera parameters, surface normals, 3D Gaussians
+IMAGE_TO_3D_MODEL = os.environ.get("IMAGE_TO_3D_MODEL", "tencent/HunyuanWorld-Mirror")
+# Available image-to-3D models for selection
+IMAGE_TO_3D_MODELS = [
+    "tencent/HunyuanWorld-Mirror",  # Universal 3D reconstruction, generates point clouds, depth, normals, gaussians
+]
 
 # Output directory
 OUTPUT_DIR = Path("./outputs")

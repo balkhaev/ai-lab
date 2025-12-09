@@ -189,3 +189,4 @@ def get_cache_size() -> tuple[int, int]:
         logger.error(f"Failed to get cache size: {e}")
         return 0, 0
 
+

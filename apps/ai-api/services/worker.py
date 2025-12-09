@@ -12,7 +12,7 @@ from typing import Callable, Coroutine
 import torch
 from PIL import Image
 
-from config import get_device, VIDEO_MODEL, IMAGE_MODEL, IMAGE2IMAGE_MODEL
+from config import get_device, VIDEO_MODEL, IMAGE_MODEL, IMAGE2IMAGE_MODEL, IMAGE_TO_3D_MODEL
 from models.management import ModelType
 from models.queue import TaskStatus, TaskType
 from services.orchestrator import orchestrator
@@ -30,6 +30,7 @@ CONCURRENCY_LIMITS: dict[TaskType, int] = {
     TaskType.VIDEO: 1,      # Video is very memory intensive
     TaskType.IMAGE: 2,      # Images are relatively fast
     TaskType.IMAGE2IMAGE: 2,
+    TaskType.IMAGE_TO_3D: 1,  # 3D reconstruction is memory intensive
     TaskType.LLM_COMPARE: 1,  # LLM comparison can be heavy
 }
 
@@ -38,6 +39,7 @@ _processing_counts: dict[TaskType, int] = {
     TaskType.VIDEO: 0,
     TaskType.IMAGE: 0,
     TaskType.IMAGE2IMAGE: 0,
+    TaskType.IMAGE_TO_3D: 0,
     TaskType.LLM_COMPARE: 0,
 }
 
@@ -250,6 +252,62 @@ async def process_video_task(task_id: str, params: dict) -> dict:
     }
 
 
+async def process_image_to_3d_task(task_id: str, params: dict) -> dict:
+    """Process an image-to-3D task using HunyuanWorld-Mirror"""
+    import time
+    from services.loaders import generate_3d
+    
+    logger.info(f"Processing image-to-3D task {task_id}")
+    
+    start_time = time.time()
+    
+    # Extract parameters
+    image_base64 = params["image_base64"]
+    model = params.get("model") or IMAGE_TO_3D_MODEL
+    camera_intrinsics = params.get("camera_intrinsics")
+    camera_pose = params.get("camera_pose")
+    
+    # Decode input image
+    image_data = base64.b64decode(image_base64)
+    pil_image = Image.open(io.BytesIO(image_data)).convert("RGB")
+    
+    # Update progress
+    await update_task(task_id, progress=10.0)
+    
+    # Load model using orchestrator
+    loaded_model = await orchestrator.ensure_loaded(model, ModelType.IMAGE_TO_3D)
+    pipe = loaded_model.instance
+    
+    await update_task(task_id, progress=30.0)
+    
+    # Generate 3D representation
+    result_3d = generate_3d(
+        pipe=pipe,
+        image=pil_image,
+        camera_intrinsics=camera_intrinsics,
+        camera_pose=camera_pose,
+    )
+    
+    await update_task(task_id, progress=90.0)
+    
+    generation_time = time.time() - start_time
+    
+    # Encode point cloud PLY to base64 if present
+    point_cloud_ply_base64 = None
+    if "point_cloud_ply" in result_3d and result_3d["point_cloud_ply"]:
+        point_cloud_ply_base64 = base64.b64encode(result_3d["point_cloud_ply"]).decode("utf-8")
+    
+    return {
+        "point_cloud_ply_base64": point_cloud_ply_base64,
+        "point_cloud_array": result_3d.get("point_cloud_array"),
+        "depth_map": result_3d.get("depth_map"),
+        "normal_map": result_3d.get("normal_map"),
+        "camera_params": result_3d.get("camera_params"),
+        "gaussians": result_3d.get("gaussians"),
+        "generation_time": generation_time,
+    }
+
+
 async def process_llm_compare_task(task_id: str, params: dict) -> dict:
     """Process an LLM comparison task"""
     from vllm import SamplingParams
@@ -314,6 +372,7 @@ TASK_PROCESSORS: dict[TaskType, Callable[[str, dict], Coroutine]] = {
     TaskType.IMAGE: process_image_task,
     TaskType.IMAGE2IMAGE: process_image2image_task,
     TaskType.VIDEO: process_video_task,
+    TaskType.IMAGE_TO_3D: process_image_to_3d_task,
     TaskType.LLM_COMPARE: process_llm_compare_task,
 }
 

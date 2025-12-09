@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Boxes,
   ChevronLeft,
   ChevronRight,
   Cpu,
@@ -17,14 +18,19 @@ import { cn } from "@/lib/utils";
 import { Logo, LogoIcon } from "./logo";
 import { Button } from "./ui/button";
 
-const navItems = [
+const navItems: {
+  href: string;
+  label: string;
+  icon: typeof Home;
+}[] = [
   { href: "/", label: "Главная", icon: Home },
   { href: "/chat", label: "Чат", icon: MessageSquare },
   { href: "/image", label: "Изображения", icon: ImageIcon },
   { href: "/video", label: "Видео", icon: Video },
+  { href: "/3d", label: "3D", icon: Boxes },
   { href: "/compare", label: "Сравнение LLM", icon: GitCompare },
   { href: "/models", label: "Модели", icon: Cpu },
-] as const;
+];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -59,7 +65,7 @@ export function Sidebar() {
                   ? "bg-primary/10 text-primary shadow-[0_0_15px_rgba(255,45,117,0.15)]"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               )}
-              href={href}
+              href={href as never}
               key={href}
             >
               {/* Active indicator */}
@@ -85,7 +91,7 @@ export function Sidebar() {
               {/* Hover glow effect */}
               {!isActive && (
                 <div className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-primary/5 to-accent/5" />
+                  <div className="absolute inset-0 rounded-lg bg-linear-to-r from-primary/5 to-accent/5" />
                 </div>
               )}
             </Link>
@@ -113,7 +119,7 @@ export function Sidebar() {
       </div>
 
       {/* Bottom glow effect */}
-      <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-32 bg-gradient-to-t from-primary/5 to-transparent" />
+      <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-32 bg-linear-to-t from-primary/5 to-transparent" />
     </aside>
   );
 }

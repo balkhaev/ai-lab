@@ -183,9 +183,9 @@ class ModelOrchestrator:
         logger.info(f"Memory check: {gpu.free_mb:.0f}MB free, {required_mb:.0f}MB required, {len(self._models)} models loaded")
         logger.info(f"Loaded models: {[(m.model_id, m.model_type.value) for m in self._models.values()]}")
         
-        # Strategy: If loading IMAGE/VIDEO, always unload LLM first
+        # Strategy: If loading IMAGE/VIDEO/IMAGE_TO_3D, always unload LLM first
         # (vLLM runs in subprocess, pynvml can't see its memory accurately)
-        if target_type in (ModelType.IMAGE, ModelType.IMAGE2IMAGE, ModelType.VIDEO):
+        if target_type in (ModelType.IMAGE, ModelType.IMAGE2IMAGE, ModelType.VIDEO, ModelType.IMAGE_TO_3D):
             llm_models = [m for m in self._models.values() if m.model_type == ModelType.LLM]
             for model in llm_models:
                 logger.info(f"Unloading LLM model {model.model_id} to free memory for {target_type.value}")
@@ -193,7 +193,7 @@ class ModelOrchestrator:
         
         # Strategy: If loading LLM, unload media models first
         elif target_type == ModelType.LLM:
-            media_types = (ModelType.IMAGE, ModelType.IMAGE2IMAGE, ModelType.VIDEO)
+            media_types = (ModelType.IMAGE, ModelType.IMAGE2IMAGE, ModelType.VIDEO, ModelType.IMAGE_TO_3D)
             media_models = [m for m in self._models.values() if m.model_type in media_types]
             for model in media_models:
                 logger.info(f"Unloading media model {model.model_id} to free memory for LLM")
@@ -404,6 +404,7 @@ class ModelOrchestrator:
             estimate_llm_memory,
             estimate_image_memory,
             estimate_video_memory,
+            estimate_image_to_3d_memory,
         )
         
         if model_type == ModelType.LLM:
@@ -412,6 +413,8 @@ class ModelOrchestrator:
             return estimate_image_memory(model_id)
         elif model_type == ModelType.VIDEO:
             return estimate_video_memory(model_id)
+        elif model_type == ModelType.IMAGE_TO_3D:
+            return estimate_image_to_3d_memory(model_id)
         else:
             return 10_000  # Default 10GB estimate
     
@@ -427,6 +430,7 @@ class ModelOrchestrator:
             load_image_pipeline,
             load_image2image_pipeline,
             load_video_pipeline,
+            load_image_to_3d_pipeline,
         )
         
         if model_type == ModelType.LLM:
@@ -455,6 +459,13 @@ class ModelOrchestrator:
             )
             return instance, memory, {"video_family": family.value}
         
+        elif model_type == ModelType.IMAGE_TO_3D:
+            loop = asyncio.get_event_loop()
+            instance, memory = await loop.run_in_executor(
+                None, load_image_to_3d_pipeline, model_id
+            )
+            return instance, memory, {}
+        
         else:
             raise ValueError(f"Unknown model type: {model_type}")
     
@@ -469,6 +480,7 @@ class ModelOrchestrator:
             unload_llm,
             unload_image_pipeline,
             unload_video_pipeline,
+            unload_image_to_3d_pipeline,
         )
         
         if model_type == ModelType.LLM:
@@ -484,6 +496,12 @@ class ModelOrchestrator:
             loop = asyncio.get_event_loop()
             return await loop.run_in_executor(
                 None, unload_video_pipeline, instance
+            )
+        
+        elif model_type == ModelType.IMAGE_TO_3D:
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                None, unload_image_to_3d_pipeline, instance
             )
         
         else:

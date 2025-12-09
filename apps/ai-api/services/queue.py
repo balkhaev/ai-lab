@@ -321,3 +321,4 @@ async def cleanup_old_tasks() -> int:
     logger.info("Task cleanup is handled automatically by Redis TTL")
     return 0
 
+

@@ -4,8 +4,10 @@ import { z } from "zod";
 import {
   getAllImage2ImagePresets,
   getAllImagePresets,
+  getAllImageTo3DPresets,
   getImage2ImagePreset,
   getImagePreset,
+  getImageTo3DPreset,
 } from "../presets";
 
 const AI_API_URL = process.env.AI_API_URL || "http://localhost:8000";
@@ -46,13 +48,31 @@ type VideoTaskResponse = {
 
 type TaskResponse = {
   id: string;
-  type: "video" | "image" | "image2image" | "llm_compare";
+  type: "video" | "image" | "image2image" | "image_to_3d" | "llm_compare";
   status: "pending" | "processing" | "completed" | "failed" | "cancelled";
   progress: number;
   error: string | null;
   created_at: string;
   updated_at: string;
   user_id: string | null;
+};
+
+type ImageTo3DResult = {
+  point_cloud_ply_base64: string | null;
+  point_cloud_array: number[][] | null;
+  depth_map: number[][] | null;
+  normal_map: number[][][] | null;
+  camera_params: Record<string, unknown> | null;
+  gaussians: Record<string, unknown> | null;
+  generation_time: number;
+};
+
+type ImageTo3DTaskResponse = {
+  task_id: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  progress: number | null;
+  result: ImageTo3DResult | null;
+  error: string | null;
 };
 
 type HealthResponse = {
@@ -238,6 +258,84 @@ media.get("/video/status/:taskId", async (c) => {
   }
 
   const data = (await response.json()) as VideoTaskResponse;
+  return c.json(data);
+});
+
+// ==================== Image-to-3D Endpoints ====================
+
+// Get available image-to-3D models with presets
+media.get("/image-to-3d/models", async (c) => {
+  const response = await fetch(`${AI_API_URL}/generate/image-to-3d/models`);
+
+  if (!response.ok) {
+    return c.json({ error: "Failed to get models list" }, 500);
+  }
+
+  const data = (await response.json()) as {
+    models: string[];
+    current_model: string | null;
+  };
+
+  // Add presets from gateway
+  const allPresets = getAllImageTo3DPresets();
+  const presets: Record<string, ReturnType<typeof getImageTo3DPreset>> = {};
+  for (const model of data.models) {
+    presets[model] = allPresets[model] ?? getImageTo3DPreset(model);
+  }
+
+  return c.json({
+    ...data,
+    presets,
+  });
+});
+
+// Generate 3D from image (start task)
+media.post("/image-to-3d", async (c) => {
+  const formData = await c.req.formData();
+
+  // Get model from form data to apply preset info
+  const model = formData.get("model")?.toString() ?? "";
+  const preset = getImageTo3DPreset(model);
+
+  // Log what capabilities the model has (for debugging)
+  console.log(`Image-to-3D request for model ${model || "default"}:`, {
+    outputs: preset.outputs,
+    vram_gb: preset.vram_gb,
+  });
+
+  const response = await fetch(`${AI_API_URL}/generate/image-to-3d`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    return c.json(
+      { error: `Failed to start image-to-3D generation: ${error}` },
+      500
+    );
+  }
+
+  const data = (await response.json()) as TaskResponse;
+  return c.json(data);
+});
+
+// Get image-to-3D task status
+media.get("/image-to-3d/status/:taskId", async (c) => {
+  const taskId = c.req.param("taskId");
+
+  const response = await fetch(
+    `${AI_API_URL}/generate/image-to-3d/status/${taskId}`
+  );
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      return c.json({ error: "Task not found" }, 404);
+    }
+    return c.json({ error: "Failed to get task status" }, 500);
+  }
+
+  const data = (await response.json()) as ImageTo3DTaskResponse;
   return c.json(data);
 });
 

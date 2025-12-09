@@ -67,10 +67,11 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
       supports_system_prompt: true,
       supports_vision: false,
     },
-  "Qwen/Qwen2.5-7B-Instruct": {
-    model_id: "Qwen/Qwen2.5-7B-Instruct",
-    name: "Qwen 2.5 7B",
-    description: "Быстрая универсальная модель от Alibaba. ChatML формат.",
+  "dphn/dolphin-2.9.3-mistral-nemo-12b": {
+    model_id: "dphn/dolphin-2.9.3-mistral-nemo-12b",
+    name: "Dolphin 2.9.3 Nemo 12B",
+    description:
+      "Uncensored модель от Eric Hartford. Function calling, coding, ChatML. 128k контекст.",
     prompt_format: "chatml",
     temperature: 0.7,
     top_p: 0.95,
@@ -81,10 +82,11 @@ export const LLM_PRESETS: Record<string, LLMPreset> = {
     supports_system_prompt: true,
     supports_vision: false,
   },
-  "Qwen/Qwen2-VL-7B-Instruct": {
-    model_id: "Qwen/Qwen2-VL-7B-Instruct",
-    name: "Qwen 2 VL 7B",
-    description: "Vision-Language модель. Понимает изображения.",
+  "huihui-ai/Qwen3-VL-8B-Instruct-abliterated": {
+    model_id: "huihui-ai/Qwen3-VL-8B-Instruct-abliterated",
+    name: "Qwen3 VL 8B Abliterated",
+    description:
+      "Vision-Language модель без цензуры. Понимает изображения. ChatML формат.",
     prompt_format: "chatml",
     temperature: 0.7,
     top_p: 0.95,
@@ -269,7 +271,76 @@ export const DEFAULT_IMAGE2IMAGE_PRESET: Image2ImagePreset = {
   supports_negative_prompt: true,
 };
 
+// ============== Image-to-3D Types ==============
+
+export type ImageTo3DPreset = {
+  model_id: string;
+  name: string;
+  description: string;
+  // Model capabilities
+  outputs: {
+    point_cloud: boolean;
+    depth_map: boolean;
+    normal_map: boolean;
+    gaussians: boolean;
+    camera_params: boolean;
+  };
+  // Memory requirements
+  vram_gb: number;
+  // UI hints
+  supports_camera_intrinsics: boolean;
+  supports_camera_pose: boolean;
+  supports_depth_prior: boolean;
+};
+
+// ============== Image-to-3D Presets ==============
+
+export const IMAGE_TO_3D_PRESETS: Record<string, ImageTo3DPreset> = {
+  "tencent/HunyuanWorld-Mirror": {
+    model_id: "tencent/HunyuanWorld-Mirror",
+    name: "HunyuanWorld-Mirror",
+    description:
+      "Универсальная модель для 3D-реконструкции. Генерирует point cloud, depth, normals, 3D Gaussians.",
+    outputs: {
+      point_cloud: true,
+      depth_map: true,
+      normal_map: true,
+      gaussians: true,
+      camera_params: true,
+    },
+    vram_gb: 16,
+    supports_camera_intrinsics: true,
+    supports_camera_pose: true,
+    supports_depth_prior: true,
+  },
+};
+
+export const DEFAULT_IMAGE_TO_3D_PRESET: ImageTo3DPreset = {
+  model_id: "default",
+  name: "Default",
+  description: "Стандартные настройки для image-to-3D моделей.",
+  outputs: {
+    point_cloud: true,
+    depth_map: true,
+    normal_map: false,
+    gaussians: false,
+    camera_params: true,
+  },
+  vram_gb: 16,
+  supports_camera_intrinsics: false,
+  supports_camera_pose: false,
+  supports_depth_prior: false,
+};
+
 // ============== Helper Functions ==============
+
+export function getImageTo3DPreset(modelId: string): ImageTo3DPreset {
+  return IMAGE_TO_3D_PRESETS[modelId] ?? DEFAULT_IMAGE_TO_3D_PRESET;
+}
+
+export function getAllImageTo3DPresets(): Record<string, ImageTo3DPreset> {
+  return { ...IMAGE_TO_3D_PRESETS };
+}
 
 export function getImagePreset(modelId: string): ImagePreset {
   return IMAGE_PRESETS[modelId] ?? DEFAULT_IMAGE_PRESET;

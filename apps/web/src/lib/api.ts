@@ -521,8 +521,125 @@ export async function getMediaHealth(): Promise<{
   return response.json();
 }
 
+// ==================== Image-to-3D API ====================
+
+export type ImageTo3DPreset = {
+  model_id: string;
+  name: string;
+  description: string;
+  outputs: {
+    point_cloud: boolean;
+    depth_map: boolean;
+    normal_map: boolean;
+    gaussians: boolean;
+    camera_params: boolean;
+  };
+  vram_gb: number;
+  supports_camera_intrinsics: boolean;
+  supports_camera_pose: boolean;
+  supports_depth_prior: boolean;
+};
+
+export type ImageTo3DModelsResponse = {
+  models: string[];
+  current_model: string | null;
+  presets: Record<string, ImageTo3DPreset>;
+};
+
+export type ImageTo3DParams = {
+  image: File;
+  model?: string;
+  camera_intrinsics?: number[][];
+  camera_pose?: number[][];
+};
+
+export type ImageTo3DResult = {
+  point_cloud_ply_base64: string | null;
+  point_cloud_array: number[][] | null;
+  depth_map: number[][] | null;
+  normal_map: number[][][] | null;
+  camera_params: Record<string, unknown> | null;
+  gaussians: Record<string, unknown> | null;
+  generation_time: number;
+};
+
+export type ImageTo3DTaskResponse = {
+  task_id: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  progress: number | null;
+  result: ImageTo3DResult | null;
+  error: string | null;
+};
+
+export async function getImageTo3DModels(): Promise<ImageTo3DModelsResponse> {
+  const response = await fetch(`${API_URL}/api/media/image-to-3d/models`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to get image-to-3D models");
+  }
+
+  return response.json() as Promise<ImageTo3DModelsResponse>;
+}
+
+export async function generateImageTo3D(
+  params: ImageTo3DParams
+): Promise<Task> {
+  const formData = new FormData();
+  formData.append("image", params.image);
+
+  if (params.model) {
+    formData.append("model", params.model);
+  }
+  if (params.camera_intrinsics) {
+    formData.append(
+      "camera_intrinsics",
+      JSON.stringify(params.camera_intrinsics)
+    );
+  }
+  if (params.camera_pose) {
+    formData.append("camera_pose", JSON.stringify(params.camera_pose));
+  }
+
+  const response = await fetch(`${API_URL}/api/media/image-to-3d`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to start image-to-3D generation: ${error}`);
+  }
+
+  return response.json() as Promise<Task>;
+}
+
+export async function getImageTo3DStatus(
+  taskId: string
+): Promise<ImageTo3DTaskResponse> {
+  const response = await fetch(
+    `${API_URL}/api/media/image-to-3d/status/${taskId}`,
+    {
+      credentials: "include",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to get image-to-3D status");
+  }
+
+  return response.json() as Promise<ImageTo3DTaskResponse>;
+}
+
 // Model Management API
-export type ModelType = "llm" | "image" | "image2image" | "video";
+export type ModelType =
+  | "llm"
+  | "image"
+  | "image2image"
+  | "video"
+  | "image_to_3d";
 export type ModelStatus =
   | "not_loaded"
   | "loading"

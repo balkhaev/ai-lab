@@ -178,3 +178,4 @@ def unload_image_pipeline(pipe: object) -> float:
     logger.info(f"Image pipeline unloaded, freed ~{freed_memory:.0f}MB")
     return freed_memory
 
+

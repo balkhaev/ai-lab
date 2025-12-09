@@ -13,6 +13,7 @@ class TaskType(str, Enum):
     VIDEO = "video"
     IMAGE = "image"
     IMAGE2IMAGE = "image2image"
+    IMAGE_TO_3D = "image_to_3d"
     LLM_COMPARE = "llm_compare"
 
 
@@ -62,6 +63,14 @@ class VideoTaskParams(TaskParams):
     guidance_scale: float = 6.0
     num_frames: int = 49
     seed: int | None = None
+
+
+class ImageTo3DTaskParams(TaskParams):
+    """Parameters for image-to-3D task"""
+    image_base64: str  # Input image as base64
+    model: str | None = None
+    camera_intrinsics: list[list[float]] | None = None
+    camera_pose: list[list[float]] | None = None
 
 
 class LLMCompareTaskParams(TaskParams):

@@ -15,6 +15,12 @@ from services.loaders.video import (
     VideoModelFamily,
     estimate_video_memory,
 )
+from services.loaders.image_to_3d import (
+    load_image_to_3d_pipeline,
+    unload_image_to_3d_pipeline,
+    estimate_image_to_3d_memory,
+    generate_3d,
+)
 
 __all__ = [
     # LLM
@@ -32,5 +38,10 @@ __all__ = [
     "detect_video_family",
     "VideoModelFamily",
     "estimate_video_memory",
+    # Image-to-3D
+    "load_image_to_3d_pipeline",
+    "unload_image_to_3d_pipeline",
+    "estimate_image_to_3d_memory",
+    "generate_3d",
 ]
 
