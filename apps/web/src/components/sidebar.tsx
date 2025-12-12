@@ -37,12 +37,13 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "relative flex h-full flex-col border-border/50 border-r bg-sidebar/80 backdrop-blur-xl transition-all duration-300",
+        "relative flex h-full flex-col transition-all duration-300 ease-out",
+        "liquid-glass-subtle border-glass-border border-r",
         collapsed ? "w-[72px]" : "w-[240px]"
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center justify-center border-border/50 border-b px-4">
+      <div className="flex h-16 items-center justify-center border-glass-border/50 border-b px-4">
         {collapsed ? (
           <LogoIcon className="transition-all duration-300" size={28} />
         ) : (
@@ -58,25 +59,23 @@ export function Sidebar() {
           return (
             <Link
               className={cn(
-                "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 font-medium text-sm transition-all duration-200",
+                "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 font-medium text-sm transition-all duration-200",
                 isActive
-                  ? "bg-primary/10 text-primary shadow-[0_0_15px_rgba(255,45,117,0.15)]"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  ? "liquid-glass liquid-glow-sm text-primary"
+                  : "text-muted-foreground hover:bg-glass-bg/50 hover:text-foreground"
               )}
               href={href as never}
               key={href}
             >
               {/* Active indicator */}
               {isActive ? (
-                <div className="-translate-y-1/2 absolute top-1/2 left-0 h-6 w-1 rounded-r-full bg-primary shadow-[0_0_10px_rgba(255,45,117,0.5)]" />
+                <div className="-translate-y-1/2 absolute top-1/2 left-0 h-5 w-1 rounded-r-full bg-primary" />
               ) : null}
 
               <Icon
                 className={cn(
                   "h-5 w-5 shrink-0 transition-all duration-200",
-                  isActive
-                    ? "text-primary drop-shadow-[0_0_8px_rgba(255,45,117,0.5)]"
-                    : "group-hover:text-primary"
+                  isActive ? "text-primary" : "group-hover:text-primary/70"
                 )}
               />
 
@@ -85,20 +84,13 @@ export function Sidebar() {
                   {label}
                 </span>
               )}
-
-              {/* Hover glow effect */}
-              {!isActive && (
-                <div className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                  <div className="absolute inset-0 rounded-lg bg-linear-to-r from-primary/5 to-accent/5" />
-                </div>
-              )}
             </Link>
           );
         })}
       </nav>
 
       {/* Collapse toggle */}
-      <div className="border-border/50 border-t p-3">
+      <div className="border-glass-border/50 border-t p-3">
         <Button
           className="w-full justify-center"
           onClick={() => setCollapsed(!collapsed)}
@@ -117,7 +109,13 @@ export function Sidebar() {
       </div>
 
       {/* Bottom glow effect */}
-      <div className="pointer-events-none absolute right-0 bottom-0 left-0 h-32 bg-linear-to-t from-primary/5 to-transparent" />
+      <div
+        className="pointer-events-none absolute right-0 bottom-0 left-0 h-32"
+        style={{
+          background:
+            "linear-gradient(to top, oklch(0.65 0.18 250 / 0.05), transparent)",
+        }}
+      />
     </aside>
   );
 }

@@ -769,3 +769,36 @@ export async function getQueueStats(): Promise<QueueStats> {
 
   return response.json();
 }
+
+// Daily stats for dashboard chart
+export type DailyStats = {
+  date: string;
+  completed: number;
+  failed: number;
+  total: number;
+};
+
+export type DailyStatsResponse = {
+  days: number;
+  stats: DailyStats[];
+  total_completed: number;
+  total_failed: number;
+  total: number;
+};
+
+export async function getTasksDailyStats(
+  days = 7
+): Promise<DailyStatsResponse> {
+  const response = await fetch(
+    `${API_URL}/api/tasks/stats/daily?days=${days}`,
+    {
+      credentials: "include",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to get daily stats");
+  }
+
+  return response.json();
+}

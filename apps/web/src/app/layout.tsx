@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../index.css";
-import { GradientMeshBackground } from "@/components/animated-background";
+import { LiquidGlassBackground } from "@/components/animated-background";
 import Header from "@/components/header";
 import Providers from "@/components/providers";
 import { Sidebar } from "@/components/sidebar";
@@ -32,7 +32,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          <GradientMeshBackground />
+          <LiquidGlassBackground />
           <div className="relative z-10 flex h-svh">
             <Sidebar />
             <div className="flex flex-1 flex-col overflow-hidden">

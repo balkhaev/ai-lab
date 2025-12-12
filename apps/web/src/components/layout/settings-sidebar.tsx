@@ -37,7 +37,8 @@ export function SettingsSidebar({
       {/* Desktop sidebar */}
       <aside
         className={cn(
-          "hidden border-border/50 border-l bg-card/50 backdrop-blur-sm lg:block",
+          "hidden border-glass-border/50 border-l lg:block",
+          "liquid-glass-subtle",
           className
         )}
         style={{ width: SIDEBAR_WIDTH }}
@@ -47,7 +48,10 @@ export function SettingsSidebar({
 
       {/* Mobile sheet */}
       <Sheet onOpenChange={onOpenChange} open={open}>
-        <SheetContent className="w-full sm:max-w-md" side="right">
+        <SheetContent
+          className="liquid-glass-strong w-full sm:max-w-md"
+          side="right"
+        >
           <SheetHeader className="mb-6">
             <div className="flex items-center justify-between">
               <SheetTitle>{title}</SheetTitle>

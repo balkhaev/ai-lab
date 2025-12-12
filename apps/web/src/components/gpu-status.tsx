@@ -25,12 +25,12 @@ export function GpuStatus() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["models"],
     queryFn: getModelsList,
-    refetchInterval: 10_000, // Обновлять каждые 10 секунд
+    refetchInterval: 10_000,
   });
 
   if (isLoading) {
     return (
-      <div className="flex h-8 items-center gap-2 rounded-md bg-secondary/50 px-3">
+      <div className="liquid-glass-subtle flex h-8 items-center gap-2 rounded-xl px-3">
         <MemoryStick className="h-4 w-4 animate-pulse text-muted-foreground" />
         <span className="font-mono text-muted-foreground text-xs">...</span>
       </div>
@@ -42,9 +42,9 @@ export function GpuStatus() {
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex h-8 items-center gap-2 rounded-md bg-red-500/10 px-3">
-              <MemoryStick className="h-4 w-4 text-red-500" />
-              <span className="font-mono text-red-500 text-xs">—</span>
+            <div className="flex h-8 items-center gap-2 rounded-xl bg-destructive/10 px-3">
+              <MemoryStick className="h-4 w-4 text-destructive" />
+              <span className="font-mono text-destructive text-xs">—</span>
             </div>
           </TooltipTrigger>
           <TooltipContent>
@@ -72,7 +72,6 @@ export function GpuStatus() {
     (m) => m.status === "loading" || m.status === "unloading"
   ).length;
 
-  // Определяем цвет по загруженности
   const getStatusColor = () => {
     if (usagePercent >= 90) {
       return "text-red-500";
@@ -97,13 +96,16 @@ export function GpuStatus() {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex h-8 cursor-default items-center gap-2 rounded-md bg-secondary/50 px-3 transition-colors hover:bg-secondary/80">
+          <div className="liquid-glass-subtle flex h-8 cursor-default items-center gap-2 rounded-xl px-3 transition-colors hover:bg-glass-bg-hover">
             <MemoryStick className={cn("h-4 w-4", getStatusColor())} />
             <div className="flex items-center gap-2">
               {/* Mini progress bar */}
-              <div className="h-1.5 w-12 overflow-hidden rounded-full bg-secondary">
+              <div className="h-1.5 w-12 overflow-hidden rounded-full bg-muted/50">
                 <div
-                  className={cn("h-full transition-all", getBarColor())}
+                  className={cn(
+                    "h-full transition-all duration-500",
+                    getBarColor()
+                  )}
                   style={{ width: `${usagePercent}%` }}
                 />
               </div>
@@ -113,7 +115,7 @@ export function GpuStatus() {
             </div>
             {/* Models count */}
             {(loadedModelsCount > 0 || loadingModelsCount > 0) && (
-              <div className="flex items-center gap-1 border-border/50 border-l pl-2">
+              <div className="flex items-center gap-1 border-glass-border/50 border-l pl-2">
                 <Cpu className="h-3 w-3 text-muted-foreground" />
                 <span className="font-mono text-muted-foreground text-xs">
                   {loadedModelsCount}
@@ -127,7 +129,7 @@ export function GpuStatus() {
             )}
           </div>
         </TooltipTrigger>
-        <TooltipContent className="max-w-xs" side="bottom">
+        <TooltipContent className="liquid-glass-strong max-w-xs" side="bottom">
           <div className="space-y-2">
             <div className="font-medium">GPU Память</div>
             <div className="text-muted-foreground text-xs">
@@ -137,7 +139,7 @@ export function GpuStatus() {
             <div className="text-muted-foreground text-xs">
               Свободно: {formatBytes(gpu_memory_free_mb)}
             </div>
-            <div className="border-border/50 border-t pt-2 text-muted-foreground text-xs">
+            <div className="border-glass-border/50 border-t pt-2 text-muted-foreground text-xs">
               Активных моделей: {loadedModelsCount}
               {loadingModelsCount > 0 && ` (+${loadingModelsCount} в процессе)`}
             </div>

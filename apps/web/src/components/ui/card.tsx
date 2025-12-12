@@ -6,8 +6,8 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "group relative flex flex-col gap-6 rounded-xl border border-border/50 bg-card/80 py-6 text-card-foreground backdrop-blur-sm transition-all duration-300",
-        "hover:border-primary/30 hover:shadow-[0_0_30px_rgba(255,45,117,0.1)]",
+        "group relative flex flex-col gap-6 rounded-2xl py-6 text-card-foreground transition-all duration-300",
+        "liquid-glass liquid-interactive",
         className
       )}
       data-slot="card"
@@ -82,15 +82,14 @@ function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
-/* Glass variant card for special sections */
+/* Glass variant card with accent glow for special sections */
 function CardGlass({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "group relative flex flex-col gap-6 rounded-xl py-6 text-card-foreground",
-        "border border-primary/20 bg-card/40 backdrop-blur-xl",
-        "shadow-[0_0_30px_rgba(255,45,117,0.1),inset_0_0_60px_rgba(168,85,247,0.05)]",
-        "hover:border-primary/40 hover:shadow-[0_0_40px_rgba(255,45,117,0.2),inset_0_0_80px_rgba(168,85,247,0.08)]",
+        "group relative flex flex-col gap-6 rounded-2xl py-6 text-card-foreground",
+        "liquid-glass-strong liquid-border",
+        "hover:liquid-glow-sm",
         "transition-all duration-500",
         className
       )}
@@ -100,9 +99,25 @@ function CardGlass({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+/* Stat card variant for dashboard */
+function CardStat({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "group relative flex flex-col gap-2 rounded-2xl p-5 text-card-foreground",
+        "liquid-glass liquid-interactive",
+        className
+      )}
+      data-slot="card-stat"
+      {...props}
+    />
+  );
+}
+
 export {
   Card,
   CardGlass,
+  CardStat,
   CardHeader,
   CardFooter,
   CardTitle,

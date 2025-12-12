@@ -27,12 +27,12 @@ export function Logo({
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div className={cn("relative", animated ? "animate-float" : "")}>
-        {/* Glow effect layer */}
+        {/* Subtle glow effect layer */}
         <div
-          className="absolute inset-0 opacity-60 blur-lg"
+          className="absolute inset-0 opacity-40 blur-xl"
           style={{
             background:
-              "linear-gradient(135deg, oklch(0.7 0.25 350), oklch(0.65 0.25 300))",
+              "linear-gradient(135deg, oklch(0.65 0.18 250), oklch(0.6 0.2 280))",
           }}
         />
 
@@ -49,21 +49,21 @@ export function Logo({
         >
           <title>AI Lab Logo</title>
           <defs>
-            {/* Neon gradient */}
+            {/* Liquid Glass gradient */}
             <linearGradient
               gradientUnits="userSpaceOnUse"
-              id="neon-gradient"
+              id="liquid-gradient"
               x1="0"
               x2="48"
               y1="0"
               y2="48"
             >
-              <stop offset="0%" stopColor="oklch(0.7 0.25 350)" />
-              <stop offset="50%" stopColor="oklch(0.65 0.25 300)" />
-              <stop offset="100%" stopColor="oklch(0.75 0.15 195)" />
+              <stop offset="0%" stopColor="oklch(0.7 0.15 250)" />
+              <stop offset="50%" stopColor="oklch(0.6 0.18 270)" />
+              <stop offset="100%" stopColor="oklch(0.55 0.15 290)" />
             </linearGradient>
 
-            {/* Glow filter */}
+            {/* Subtle glow filter */}
             <filter
               filterUnits="userSpaceOnUse"
               height="200%"
@@ -75,46 +75,67 @@ export function Logo({
               <feGaussianBlur
                 in="SourceGraphic"
                 result="blur"
-                stdDeviation="2"
+                stdDeviation="1.5"
               />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+
+            {/* Glass fill gradient */}
+            <linearGradient
+              gradientUnits="userSpaceOnUse"
+              id="glass-fill"
+              x1="6"
+              x2="42"
+              y1="4"
+              y2="44"
+            >
+              <stop
+                offset="0%"
+                stopColor="oklch(0.2 0.02 260)"
+                stopOpacity="0.8"
+              />
+              <stop
+                offset="100%"
+                stopColor="oklch(0.1 0.02 260)"
+                stopOpacity="0.6"
+              />
+            </linearGradient>
           </defs>
 
-          {/* Hexagon shape */}
+          {/* Hexagon shape with glass effect */}
           <path
             d="M24 4L42 14V34L24 44L6 34V14L24 4Z"
-            fill="oklch(0.12 0.02 280)"
+            fill="url(#glass-fill)"
             filter="url(#glow)"
-            stroke="url(#neon-gradient)"
-            strokeWidth="2"
+            stroke="url(#liquid-gradient)"
+            strokeWidth="1.5"
           />
 
-          {/* Inner geometric pattern - AI symbol */}
+          {/* Inner geometric pattern */}
           <path
             d="M24 12L32 18V30L24 36L16 30V18L24 12Z"
             fill="none"
-            stroke="url(#neon-gradient)"
-            strokeOpacity="0.6"
-            strokeWidth="1.5"
+            stroke="url(#liquid-gradient)"
+            strokeOpacity="0.5"
+            strokeWidth="1"
           />
 
           {/* Center dot / node */}
           <circle
             cx="24"
             cy="24"
-            fill="url(#neon-gradient)"
+            fill="url(#liquid-gradient)"
             filter="url(#glow)"
             r="4"
           />
 
           {/* Connection lines */}
           <line
-            stroke="url(#neon-gradient)"
-            strokeOpacity="0.4"
+            stroke="url(#liquid-gradient)"
+            strokeOpacity="0.3"
             strokeWidth="1"
             x1="24"
             x2="24"
@@ -122,8 +143,8 @@ export function Logo({
             y2="20"
           />
           <line
-            stroke="url(#neon-gradient)"
-            strokeOpacity="0.4"
+            stroke="url(#liquid-gradient)"
+            strokeOpacity="0.3"
             strokeWidth="1"
             x1="24"
             x2="24"
@@ -131,8 +152,8 @@ export function Logo({
             y2="36"
           />
           <line
-            stroke="url(#neon-gradient)"
-            strokeOpacity="0.4"
+            stroke="url(#liquid-gradient)"
+            strokeOpacity="0.3"
             strokeWidth="1"
             x1="16"
             x2="20"
@@ -140,8 +161,8 @@ export function Logo({
             y2="22"
           />
           <line
-            stroke="url(#neon-gradient)"
-            strokeOpacity="0.4"
+            stroke="url(#liquid-gradient)"
+            strokeOpacity="0.3"
             strokeWidth="1"
             x1="32"
             x2="28"
@@ -149,8 +170,8 @@ export function Logo({
             y2="22"
           />
           <line
-            stroke="url(#neon-gradient)"
-            strokeOpacity="0.4"
+            stroke="url(#liquid-gradient)"
+            strokeOpacity="0.3"
             strokeWidth="1"
             x1="16"
             x2="20"
@@ -158,8 +179,8 @@ export function Logo({
             y2="26"
           />
           <line
-            stroke="url(#neon-gradient)"
-            strokeOpacity="0.4"
+            stroke="url(#liquid-gradient)"
+            strokeOpacity="0.3"
             strokeWidth="1"
             x1="32"
             x2="28"
@@ -171,11 +192,7 @@ export function Logo({
 
       {showText ? (
         <span
-          className={cn(
-            "gradient-neon-text font-bold tracking-tight",
-            text,
-            animated ? "animate-neon-flicker" : ""
-          )}
+          className={cn("gradient-text font-semibold tracking-tight", text)}
         >
           ai-lab
         </span>
@@ -206,15 +223,30 @@ export function LogoIcon({
       <defs>
         <linearGradient
           gradientUnits="userSpaceOnUse"
-          id="neon-gradient-icon"
+          id="liquid-gradient-icon"
           x1="0"
           x2="48"
           y1="0"
           y2="48"
         >
-          <stop offset="0%" stopColor="oklch(0.7 0.25 350)" />
-          <stop offset="50%" stopColor="oklch(0.65 0.25 300)" />
-          <stop offset="100%" stopColor="oklch(0.75 0.15 195)" />
+          <stop offset="0%" stopColor="oklch(0.7 0.15 250)" />
+          <stop offset="50%" stopColor="oklch(0.6 0.18 270)" />
+          <stop offset="100%" stopColor="oklch(0.55 0.15 290)" />
+        </linearGradient>
+        <linearGradient
+          gradientUnits="userSpaceOnUse"
+          id="glass-fill-icon"
+          x1="6"
+          x2="42"
+          y1="4"
+          y2="44"
+        >
+          <stop offset="0%" stopColor="oklch(0.2 0.02 260)" stopOpacity="0.8" />
+          <stop
+            offset="100%"
+            stopColor="oklch(0.1 0.02 260)"
+            stopOpacity="0.6"
+          />
         </linearGradient>
         <filter
           filterUnits="userSpaceOnUse"
@@ -224,7 +256,7 @@ export function LogoIcon({
           x="-50%"
           y="-50%"
         >
-          <feGaussianBlur in="SourceGraphic" result="blur" stdDeviation="1.5" />
+          <feGaussianBlur in="SourceGraphic" result="blur" stdDeviation="1" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
@@ -233,22 +265,22 @@ export function LogoIcon({
       </defs>
       <path
         d="M24 4L42 14V34L24 44L6 34V14L24 4Z"
-        fill="oklch(0.12 0.02 280)"
+        fill="url(#glass-fill-icon)"
         filter="url(#glow-icon)"
-        stroke="url(#neon-gradient-icon)"
-        strokeWidth="2"
+        stroke="url(#liquid-gradient-icon)"
+        strokeWidth="1.5"
       />
       <path
         d="M24 12L32 18V30L24 36L16 30V18L24 12Z"
         fill="none"
-        stroke="url(#neon-gradient-icon)"
-        strokeOpacity="0.6"
-        strokeWidth="1.5"
+        stroke="url(#liquid-gradient-icon)"
+        strokeOpacity="0.5"
+        strokeWidth="1"
       />
       <circle
         cx="24"
         cy="24"
-        fill="url(#neon-gradient-icon)"
+        fill="url(#liquid-gradient-icon)"
         filter="url(#glow-icon)"
         r="4"
       />

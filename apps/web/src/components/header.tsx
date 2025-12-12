@@ -6,7 +6,7 @@ import UserMenu from "./user-menu";
 
 export default function Header() {
   return (
-    <header className="flex h-14 items-center justify-end border-border/50 border-b bg-background/80 px-6 backdrop-blur-xl">
+    <header className="liquid-glass-subtle flex h-14 items-center justify-end border-glass-border/50 border-b px-6">
       <div className="flex items-center gap-3">
         <GpuStatus />
         <TaskQueue />

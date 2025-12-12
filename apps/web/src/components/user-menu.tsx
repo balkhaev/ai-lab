@@ -20,12 +20,12 @@ export default function UserMenu() {
   const { data: session, isPending } = authClient.useSession();
 
   if (isPending) {
-    return <Skeleton className="h-10 w-24" />;
+    return <Skeleton className="h-10 w-24 rounded-xl" />;
   }
 
   if (!session) {
     return (
-      <Button asChild variant="outline">
+      <Button asChild variant="glass">
         <Link href="/login">Войти</Link>
       </Button>
     );
@@ -34,28 +34,28 @@ export default function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className="gap-2" variant="outline">
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10">
+        <Button className="gap-2" variant="glass">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/15">
             <User className="h-3.5 w-3.5 text-primary" />
           </div>
           <span className="max-w-[100px] truncate">{session.user.name}</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="end" className="liquid-glass-strong w-56">
         <DropdownMenuLabel>Мой аккаунт</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="flex-col items-start gap-1">
+        <DropdownMenuSeparator className="bg-glass-border/50" />
+        <DropdownMenuItem className="flex-col items-start gap-1 rounded-lg">
           <span className="text-muted-foreground text-xs">Email</span>
           <span className="w-full truncate">{session.user.email}</span>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
+        <DropdownMenuSeparator className="bg-glass-border/50" />
         <DropdownMenuItem
-          className="cursor-pointer text-destructive focus:text-destructive"
+          className="cursor-pointer rounded-lg text-destructive focus:text-destructive"
           onClick={() => {
             authClient.signOut({
               fetchOptions: {
                 onSuccess: () => {
-                  router.push("/");
+                  router.push("/login");
                 },
               },
             });

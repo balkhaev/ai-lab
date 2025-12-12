@@ -37,7 +37,7 @@ export function PageHeader({
   // Split title to apply gradient to highlighted part
   const renderTitle = () => {
     if (!highlight) {
-      return <span className="gradient-neon-text">{title}</span>;
+      return <span className="gradient-text-accent">{title}</span>;
     }
 
     const parts = title.split(highlight);
@@ -48,7 +48,7 @@ export function PageHeader({
     return (
       <>
         {parts[0]}
-        <span className="gradient-neon-text">{highlight}</span>
+        <span className="gradient-text-accent">{highlight}</span>
         {parts.slice(1).join(highlight)}
       </>
     );
@@ -58,7 +58,9 @@ export function PageHeader({
     <div className={cn("mb-6", className)}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-bold text-2xl tracking-tight">{renderTitle()}</h1>
+          <h1 className="font-semibold text-2xl tracking-tight">
+            {renderTitle()}
+          </h1>
           {titleExtra}
         </div>
 
@@ -69,7 +71,7 @@ export function PageHeader({
               className="lg:hidden"
               onClick={onSettingsToggle}
               size="sm"
-              variant="ghost"
+              variant="glass"
             >
               <Settings2 className="h-4 w-4" />
             </Button>

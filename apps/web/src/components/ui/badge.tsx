@@ -9,17 +9,19 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground shadow-[0_0_10px_rgba(255,45,117,0.3)] hover:shadow-[0_0_15px_rgba(255,45,117,0.5)]",
+          "border-transparent bg-primary text-primary-foreground shadow-sm",
         secondary:
-          "border-border/50 bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive:
-          "border-transparent bg-destructive text-white shadow-[0_0_10px_rgba(239,68,68,0.3)]",
-        outline:
-          "border-border text-foreground hover:border-primary/50 hover:text-primary",
-        neon: "border-primary/50 bg-primary/10 text-primary shadow-[0_0_10px_rgba(255,45,117,0.2)] hover:bg-primary/20 hover:shadow-[0_0_15px_rgba(255,45,117,0.4)]",
-        purple:
-          "border-accent/50 bg-accent/10 text-accent shadow-[0_0_10px_rgba(168,85,247,0.2)] hover:bg-accent/20 hover:shadow-[0_0_15px_rgba(168,85,247,0.4)]",
-        cyan: "border-[oklch(0.75_0.15_195)]/50 bg-[oklch(0.75_0.15_195)]/10 text-[oklch(0.75_0.15_195)] shadow-[0_0_10px_rgba(6,182,212,0.2)] hover:bg-[oklch(0.75_0.15_195)]/20",
+          "border-glass-border/50 bg-secondary text-secondary-foreground",
+        destructive: "border-transparent bg-destructive text-white",
+        outline: "border-glass-border text-foreground",
+        // Liquid Glass style badges
+        glass:
+          "border-glass-border bg-glass-bg/50 text-foreground backdrop-blur-sm",
+        accent: "border-primary/30 bg-primary/10 text-primary",
+        purple: "border-accent/30 bg-accent/10 text-accent",
+        // Legacy support for neon (maps to accent)
+        neon: "border-primary/30 bg-primary/10 text-primary",
+        cyan: "border-liquid-cyan/30 bg-liquid-cyan/10 text-liquid-cyan",
       },
     },
     defaultVariants: {

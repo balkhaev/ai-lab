@@ -68,12 +68,12 @@ function TaskItem({
   const isProcessing = task.status === "processing";
 
   return (
-    <div className="flex items-start gap-3 rounded-lg p-2 transition-colors hover:bg-muted/50">
+    <div className="flex items-start gap-3 rounded-xl p-2 transition-colors hover:bg-glass-bg/50">
       {/* Icon */}
       <div
         className={cn(
-          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
-          isActive ? "bg-primary/10" : "bg-muted"
+          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          isActive ? "bg-primary/10" : "bg-muted/50"
         )}
       >
         {isProcessing ? (
@@ -125,7 +125,7 @@ function TaskItem({
           {task.status === "completed" ? (
             <>
               <CheckCircle2 className="h-3 w-3 text-green-500" />
-              <span className="text-green-600 text-xs">Готово</span>
+              <span className="text-green-500 text-xs">Готово</span>
             </>
           ) : null}
           {task.status === "failed" ? (
@@ -148,14 +148,12 @@ function TaskItem({
 export function TaskQueue() {
   const queryClient = useQueryClient();
 
-  // Fetch queue stats
   const { data: stats } = useQuery({
     queryKey: ["queue-stats"],
     queryFn: getQueueStats,
     refetchInterval: 3000,
   });
 
-  // Fetch recent tasks (we'll use empty user_id to get all recent tasks for now)
   const { data: tasksData } = useQuery({
     queryKey: ["tasks-list"],
     queryFn: () => getTasks(undefined, 10),
@@ -190,7 +188,7 @@ export function TaskQueue() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button className="relative gap-2" size="sm" variant="outline">
+        <Button className="relative gap-2" size="sm" variant="glass">
           <Layers className="h-4 w-4" />
           <span className="hidden sm:inline">Очередь</span>
           {totalActive > 0 ? (
@@ -203,8 +201,8 @@ export function TaskQueue() {
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
-        <div className="border-b p-3">
+      <PopoverContent align="end" className="liquid-glass-strong w-80 p-0">
+        <div className="border-glass-border/50 border-b p-3">
           <div className="flex items-center justify-between">
             <h4 className="font-semibold text-sm">Очередь задач</h4>
             {stats ? (
@@ -230,7 +228,7 @@ export function TaskQueue() {
           ) : null}
 
           {recentTasks.length > 0 ? (
-            <div className="border-t p-2">
+            <div className="border-glass-border/50 border-t p-2">
               <div className="mb-2 px-2 font-medium text-muted-foreground text-xs">
                 Недавние
               </div>
@@ -242,7 +240,7 @@ export function TaskQueue() {
 
           {tasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-center">
-              <Layers className="mb-2 h-8 w-8 text-muted-foreground/50" />
+              <Layers className="mb-2 h-8 w-8 text-muted-foreground/30" />
               <p className="text-muted-foreground text-sm">Нет задач</p>
               <p className="text-muted-foreground/70 text-xs">
                 Задачи появятся здесь при генерации
