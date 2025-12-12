@@ -46,6 +46,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Install wget for healthcheck
+RUN apk add --no-cache wget
+
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
