@@ -62,7 +62,7 @@ EXPOSE 3001
 ENV PORT=3001
 ENV HOSTNAME="0.0.0.0"
 
-HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=5 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
 
 CMD ["node", "apps/web/server.js"]
