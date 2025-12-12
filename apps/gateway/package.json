@@ -17,7 +17,8 @@
     "zod": "^4.1.11",
     "@ai-lab/auth": "workspace:*",
     "@ai-lab/db": "workspace:*",
-    "@ai-lab/shared": "workspace:*"
+    "@ai-lab/shared": "workspace:*",
+    "prisma": "^7.0.1"
   },
   "devDependencies": {
     "typescript": "^5.8.2",
