@@ -1,34 +1,23 @@
-# Prune stage - create minimal workspace
-FROM oven/bun:1.3.3-alpine AS pruner
-
-RUN bun add -g turbo
-
-WORKDIR /app
-COPY . .
-RUN turbo prune gateway --docker
-
-# Dependencies stage
-FROM oven/bun:1.3.3-alpine AS deps
-
-WORKDIR /app
-
-# Copy pruned lockfile and package.json files
-COPY --from=pruner /app/out/json/ .
-COPY --from=pruner /app/out/bun.lock ./bun.lock
-
-# Install dependencies
-RUN bun install --frozen-lockfile
-
-# Builder stage
+# Build stage
 FROM oven/bun:1.3.3-alpine AS builder
 
 WORKDIR /app
 
-# Copy pruned source files FIRST
-COPY --from=pruner /app/out/full/ .
+# Copy all workspace package.json files for correct lockfile resolution
+COPY package.json bun.lock* ./
+COPY packages/config/package.json ./packages/config/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/db/package.json ./packages/db/
+COPY apps/gateway/package.json ./apps/gateway/
+COPY apps/web/package.json ./apps/web/
 
-# Copy node_modules AFTER (so it doesn't get overwritten)
-COPY --from=deps /app/node_modules ./node_modules
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Copy source files
+COPY packages/ ./packages/
+COPY apps/gateway/ ./apps/gateway/
 
 # Generate Prisma client (remove configs to avoid module resolution issues)
 WORKDIR /app/packages/db
