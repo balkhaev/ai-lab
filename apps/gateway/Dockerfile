@@ -30,9 +30,9 @@ COPY --from=pruner /app/out/full/ .
 # Copy node_modules AFTER (so it doesn't get overwritten)
 COPY --from=deps /app/node_modules ./node_modules
 
-# Generate Prisma client (remove config to avoid prisma/config module issue)
+# Generate Prisma client (remove configs to avoid module resolution issues)
 WORKDIR /app/packages/db
-RUN rm -f prisma.config.ts && \
+RUN rm -f prisma.config.ts tsconfig.json && \
     DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" bunx prisma generate --schema=./prisma/schema
 
 # Build
