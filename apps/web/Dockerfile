@@ -1,27 +1,37 @@
-FROM node:20-alpine AS deps
+# Prune stage - create minimal workspace
+FROM oven/bun:1.3.3-alpine AS pruner
+
+RUN bun add -g turbo
+
+WORKDIR /app
+COPY . .
+RUN turbo prune web --docker
+
+# Dependencies stage
+FROM oven/bun:1.3.3-alpine AS deps
+
 WORKDIR /app
 
-# Copy all workspace package.json files for correct lockfile resolution
-COPY package.json bun.lock* ./
-COPY packages/config/package.json ./packages/config/
-COPY packages/auth/package.json ./packages/auth/
-COPY packages/db/package.json ./packages/db/
-COPY apps/web/package.json ./apps/web/
-COPY apps/gateway/package.json ./apps/gateway/
+# Copy pruned lockfile and package.json files
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/bun.lock ./bun.lock
 
-# Install bun for dependency resolution (same version as local)
-RUN npm install -g bun@1.3.3
+# Install dependencies
 RUN bun install --frozen-lockfile
 
-# Builder stage
+# Builder stage - use node for Next.js build
 FROM node:20-alpine AS builder
+
 WORKDIR /app
 
+# Copy dependencies
 COPY --from=deps /app/node_modules ./node_modules
-COPY packages/ ./packages/
-COPY apps/web/ ./apps/web/
+COPY --from=deps /app/packages ./packages
 
-# Generate Prisma client (dummy URL for generation, real connection not needed)
+# Copy pruned source files
+COPY --from=pruner /app/out/full/ .
+
+# Generate Prisma client
 WORKDIR /app/packages/db
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npx prisma generate
 
@@ -32,15 +42,16 @@ ENV NEXT_PUBLIC_GATEWAY_URL=$NEXT_PUBLIC_GATEWAY_URL
 WORKDIR /app/apps/web
 RUN npm run build
 
-# Production image
+# Production stage
 FROM node:20-alpine AS runner
+
 WORKDIR /app
 
 ENV NODE_ENV=production
 
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
 # Copy built files (standalone preserves monorepo structure)
 COPY --from=builder /app/apps/web/public ./apps/web/public
@@ -54,5 +65,7 @@ EXPOSE 3001
 ENV PORT=3001
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "apps/web/server.js"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/ || exit 1
 
+CMD ["node", "apps/web/server.js"]

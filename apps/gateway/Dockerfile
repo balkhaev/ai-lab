@@ -1,23 +1,37 @@
-FROM oven/bun:1.3.3-alpine AS builder
+# Prune stage - create minimal workspace
+FROM oven/bun:1.3.3-alpine AS pruner
+
+RUN bun add -g turbo
+
+WORKDIR /app
+COPY . .
+RUN turbo prune gateway --docker
+
+# Dependencies stage
+FROM oven/bun:1.3.3-alpine AS deps
 
 WORKDIR /app
 
-# Copy all workspace package.json files for correct lockfile resolution
-COPY package.json bun.lock* ./
-COPY packages/config/package.json ./packages/config/
-COPY packages/auth/package.json ./packages/auth/
-COPY packages/db/package.json ./packages/db/
-COPY apps/gateway/package.json ./apps/gateway/
-COPY apps/web/package.json ./apps/web/
+# Copy pruned lockfile and package.json files
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/bun.lock ./bun.lock
 
 # Install dependencies
 RUN bun install --frozen-lockfile
 
-# Copy source files
-COPY packages/ ./packages/
-COPY apps/gateway/ ./apps/gateway/
+# Builder stage
+FROM oven/bun:1.3.3-alpine AS builder
 
-# Generate Prisma client (dummy URL for generation, real connection not needed)
+WORKDIR /app
+
+# Copy dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages ./packages
+
+# Copy pruned source files
+COPY --from=pruner /app/out/full/ .
+
+# Generate Prisma client
 WORKDIR /app/packages/db
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" bunx prisma generate
 
@@ -25,19 +39,28 @@ RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" bunx prisma gen
 WORKDIR /app/apps/gateway
 RUN bun run build
 
-# Production image
-FROM oven/bun:1.3.3-alpine
+# Production stage
+FROM oven/bun:1.3.3-alpine AS runner
 
 WORKDIR /app
 
-COPY --from=builder /app/apps/gateway/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/gateway/package.json ./
+# Create non-root user
+RUN addgroup --system --gid 1001 appgroup && \
+    adduser --system --uid 1001 appuser
+
+# Copy built files
+COPY --from=builder --chown=appuser:appgroup /app/apps/gateway/dist ./dist
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/apps/gateway/package.json ./
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
+USER appuser
+
 EXPOSE 3000
 
-CMD ["bun", "run", "start"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
+CMD ["bun", "run", "start"]
