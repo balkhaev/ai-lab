@@ -5,32 +5,22 @@
  * ai-api is a stateless service that accepts all parameters explicitly.
  */
 
-// ============== LLM Types ==============
+// Re-export types from shared
+export type {
+  Image2ImagePreset,
+  ImagePreset,
+  ImageTo3DPreset,
+  LLMPreset,
+  VideoPreset,
+} from "@ai-lab/shared/types";
 
-export type LLMPromptFormat =
-  | "chatml"
-  | "mistral"
-  | "llama2"
-  | "llama3"
-  | "alpaca";
-
-export type LLMPreset = {
-  model_id: string;
-  name: string;
-  description: string;
-  // Prompt format
-  prompt_format: LLMPromptFormat;
-  // Generation parameters
-  temperature: number;
-  top_p: number;
-  top_k: number;
-  max_tokens: number;
-  // UI hints
-  min_temperature: number;
-  max_temperature: number;
-  supports_system_prompt: boolean;
-  supports_vision: boolean;
-};
+import type {
+  Image2ImagePreset,
+  ImagePreset,
+  ImageTo3DPreset,
+  LLMPreset,
+  VideoPreset,
+} from "@ai-lab/shared/types";
 
 // ============== LLM Presets ==============
 
@@ -112,42 +102,6 @@ export const DEFAULT_LLM_PRESET: LLMPreset = {
   max_temperature: 2.0,
   supports_system_prompt: true,
   supports_vision: false,
-};
-
-// ============== Image Types ==============
-
-export type ImagePreset = {
-  model_id: string;
-  name: string;
-  description: string;
-  // Generation parameters
-  num_inference_steps: number;
-  guidance_scale: number;
-  // Recommended dimensions
-  width: number;
-  height: number;
-  // UI hints
-  min_guidance: number;
-  max_guidance: number;
-  min_steps: number;
-  max_steps: number;
-  supports_negative_prompt: boolean;
-};
-
-export type Image2ImagePreset = {
-  model_id: string;
-  name: string;
-  description: string;
-  // Generation parameters
-  num_inference_steps: number;
-  guidance_scale: number;
-  strength: number;
-  // UI hints
-  min_guidance: number;
-  max_guidance: number;
-  min_steps: number;
-  max_steps: number;
-  supports_negative_prompt: boolean;
 };
 
 // ============== Text-to-Image Presets ==============
@@ -255,6 +209,38 @@ export const IMAGE2IMAGE_PRESETS: Record<string, Image2ImagePreset> = {
     max_steps: 50,
     supports_negative_prompt: true,
   },
+  "meituan-longcat/LongCat-Image-Edit": {
+    model_id: "meituan-longcat/LongCat-Image-Edit",
+    name: "LongCat Image Edit",
+    description:
+      "SOTA модель редактирования изображений. Билингвальная (CN/EN), поддерживает глобальное/локальное редактирование, текст, и reference-guided editing. ~19GB VRAM.",
+    num_inference_steps: 50,
+    guidance_scale: 4.5,
+    strength: 1.0, // LongCat не использует strength, но поле обязательно
+    min_guidance: 1.0,
+    max_guidance: 10.0,
+    min_steps: 20,
+    max_steps: 100,
+    supports_negative_prompt: true,
+  },
+  "nsfw-undress": {
+    model_id: "nsfw-undress",
+    name: "NSFW Undress",
+    description:
+      "NSFW модель с LoRA для генерации изображений раздевающихся девушек. Базируется на Heartsync/NSFW-Uncensored + sexy LoRA. ~8GB VRAM.",
+    num_inference_steps: 30,
+    guidance_scale: 7.0,
+    strength: 0.65, // Оптимально для undress эффекта
+    min_guidance: 3.0,
+    max_guidance: 12.0,
+    min_steps: 20,
+    max_steps: 50,
+    supports_negative_prompt: true,
+    lora_repo: "ntc-ai/SDXL-LoRA-slider.sexy",
+    lora_weight_name: "sexy.safetensors",
+    lora_scale: 1.5,
+    lora_trigger_word: "sexy",
+  },
 };
 
 export const DEFAULT_IMAGE2IMAGE_PRESET: Image2ImagePreset = {
@@ -269,28 +255,6 @@ export const DEFAULT_IMAGE2IMAGE_PRESET: Image2ImagePreset = {
   min_steps: 1,
   max_steps: 100,
   supports_negative_prompt: true,
-};
-
-// ============== Image-to-3D Types ==============
-
-export type ImageTo3DPreset = {
-  model_id: string;
-  name: string;
-  description: string;
-  // Model capabilities
-  outputs: {
-    point_cloud: boolean;
-    depth_map: boolean;
-    normal_map: boolean;
-    gaussians: boolean;
-    camera_params: boolean;
-  };
-  // Memory requirements
-  vram_gb: number;
-  // UI hints
-  supports_camera_intrinsics: boolean;
-  supports_camera_pose: boolean;
-  supports_depth_prior: boolean;
 };
 
 // ============== Image-to-3D Presets ==============
@@ -332,7 +296,127 @@ export const DEFAULT_IMAGE_TO_3D_PRESET: ImageTo3DPreset = {
   supports_depth_prior: false,
 };
 
+// ============== Video Presets ==============
+
+export const VIDEO_PRESETS: Record<string, VideoPreset> = {
+  "Phr00t/WAN2.2-14B-Rapid-AllInOne": {
+    model_id: "Phr00t/WAN2.2-14B-Rapid-AllInOne",
+    name: "WAN Rapid MEGA",
+    description:
+      "FP8, 4 шага, работает на 8GB VRAM! Поддерживает T2V, I2V и VACE. Рекомендуется для быстрой генерации.",
+    num_inference_steps: 4,
+    guidance_scale: 1.0,
+    num_frames: 49,
+    fps: 24,
+    vram_gb: 8,
+    is_rapid: true,
+    supports_t2v: true,
+    supports_i2v: true,
+    min_steps: 1,
+    max_steps: 10,
+    min_guidance: 1,
+    max_guidance: 5,
+  },
+  "Lightricks/LTX-Video": {
+    model_id: "Lightricks/LTX-Video",
+    name: "LTX-Video",
+    description:
+      "Быстрая модель с real-time возможностями. 30 FPS, ~16GB VRAM.",
+    num_inference_steps: 30,
+    guidance_scale: 6.0,
+    num_frames: 49,
+    fps: 30,
+    vram_gb: 16,
+    is_rapid: false,
+    supports_t2v: true,
+    supports_i2v: true,
+    min_steps: 10,
+    max_steps: 50,
+    min_guidance: 1,
+    max_guidance: 15,
+  },
+  "THUDM/CogVideoX-5b-I2V": {
+    model_id: "THUDM/CogVideoX-5b-I2V",
+    name: "CogVideoX 5B I2V",
+    description: "Качественная image-to-video модель от THUDM. ~24GB VRAM.",
+    num_inference_steps: 50,
+    guidance_scale: 6.0,
+    num_frames: 49,
+    fps: 8,
+    vram_gb: 24,
+    is_rapid: false,
+    supports_t2v: false,
+    supports_i2v: true,
+    min_steps: 20,
+    max_steps: 100,
+    min_guidance: 1,
+    max_guidance: 15,
+  },
+  "Wan-AI/Wan2.2-I2V-14B-480P-Diffusers": {
+    model_id: "Wan-AI/Wan2.2-I2V-14B-480P-Diffusers",
+    name: "WAN 2.2 I2V 14B",
+    description:
+      "Официальная высококачественная WAN 2.2 модель. 24 FPS, ~48GB VRAM.",
+    num_inference_steps: 50,
+    guidance_scale: 6.0,
+    num_frames: 49,
+    fps: 24,
+    vram_gb: 48,
+    is_rapid: false,
+    supports_t2v: false,
+    supports_i2v: true,
+    min_steps: 20,
+    max_steps: 100,
+    min_guidance: 1,
+    max_guidance: 15,
+  },
+  "tencent/HunyuanVideo": {
+    model_id: "tencent/HunyuanVideo",
+    name: "HunyuanVideo",
+    description:
+      "Высочайшее качество text-to-video от Tencent. 30 FPS, требует ~60GB VRAM.",
+    num_inference_steps: 50,
+    guidance_scale: 6.0,
+    num_frames: 49,
+    fps: 30,
+    vram_gb: 60,
+    is_rapid: false,
+    supports_t2v: true,
+    supports_i2v: false,
+    min_steps: 20,
+    max_steps: 100,
+    min_guidance: 1,
+    max_guidance: 15,
+  },
+};
+
+export const DEFAULT_VIDEO_PRESET: VideoPreset = {
+  model_id: "default",
+  name: "Default",
+  description: "Стандартные настройки для видео моделей.",
+  num_inference_steps: 50,
+  guidance_scale: 6.0,
+  num_frames: 49,
+  fps: 24,
+  vram_gb: 24,
+  is_rapid: false,
+  supports_t2v: true,
+  supports_i2v: true,
+  min_steps: 10,
+  max_steps: 100,
+  min_guidance: 1,
+  max_guidance: 15,
+};
+
 // ============== Helper Functions ==============
+
+export function getVideoPreset(modelId: string): VideoPreset {
+  return VIDEO_PRESETS[modelId] ?? DEFAULT_VIDEO_PRESET;
+}
+
+export function getAllVideoPresets(): Record<string, VideoPreset> {
+  return { ...VIDEO_PRESETS };
+}
 
 export function getImageTo3DPreset(modelId: string): ImageTo3DPreset {
   return IMAGE_TO_3D_PRESETS[modelId] ?? DEFAULT_IMAGE_TO_3D_PRESET;

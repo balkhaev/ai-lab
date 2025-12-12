@@ -21,11 +21,14 @@ from config import (
     IMAGE_MODELS,
     IMAGE2IMAGE_MODEL,
     IMAGE2IMAGE_MODELS,
+    VIDEO_MODEL,
+    VIDEO_MODELS,
     IMAGE_TO_3D_MODEL,
     IMAGE_TO_3D_MODELS,
     get_device,
 )
 from models.management import ModelType
+from services.loaders import is_longcat_model
 from models.media import (
     ImageGenerationRequest,
     ImageGenerationResponse,
@@ -218,17 +221,32 @@ async def generate_image2image(
     pipe = loaded_model.instance
 
     actual_seed = seed if seed is not None else torch.randint(0, 2**32, (1,)).item()
-    generator = torch.Generator(device=get_device()).manual_seed(actual_seed)
-
-    result = pipe(
-        prompt=prompt,
-        negative_prompt=negative_prompt if negative_prompt else None,
-        image=pil_image,
-        strength=strength,
-        num_inference_steps=num_inference_steps,
-        guidance_scale=guidance_scale,
-        generator=generator,
-    )
+    
+    # LongCat uses different generator device (cpu) and API
+    if is_longcat_model(model_id):
+        generator = torch.Generator("cpu").manual_seed(actual_seed)
+        # LongCat-Image-Edit API: pipe(image, prompt, ...)
+        # Does not use strength parameter
+        result = pipe(
+            pil_image,
+            prompt,
+            negative_prompt=negative_prompt if negative_prompt else "",
+            guidance_scale=guidance_scale,
+            num_inference_steps=num_inference_steps,
+            num_images_per_prompt=1,
+            generator=generator,
+        )
+    else:
+        generator = torch.Generator(device=get_device()).manual_seed(actual_seed)
+        result = pipe(
+            prompt=prompt,
+            negative_prompt=negative_prompt if negative_prompt else None,
+            image=pil_image,
+            strength=strength,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            generator=generator,
+        )
 
     output_image = result.images[0]
 
@@ -245,6 +263,21 @@ async def generate_image2image(
     )
 
 
+@router.get(
+    "/video/models",
+    summary="Get available video models",
+    description="Returns list of available models for video generation",
+)
+async def get_video_models():
+    """Get list of available video models"""
+    video_model = orchestrator.get_by_type(ModelType.VIDEO)
+    current_model = video_model.model_id if video_model else None
+    return {
+        "models": VIDEO_MODELS,
+        "current_model": current_model,
+    }
+
+
 @router.post(
     "/video",
     response_model=TaskResponse,
@@ -258,10 +291,19 @@ async def generate_video(
     guidance_scale: float = Form(default=6.0, description="Guidance scale"),
     num_frames: int = Form(default=49, description="Number of frames to generate"),
     seed: int | None = Form(default=None, description="Random seed"),
+    model: str | None = Form(default=None, description="Model to use (optional)"),
 ):
     """Start video generation task using Redis queue"""
     if not ENABLE_VIDEO:
         raise HTTPException(status_code=503, detail="Video generation is disabled")
+
+    if model and model not in VIDEO_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid model. Available models: {VIDEO_MODELS}"
+        )
+
+    model_id = model or VIDEO_MODEL
 
     contents = await image.read()
     image_base64 = base64.b64encode(contents).decode("utf-8")
@@ -275,6 +317,7 @@ async def generate_video(
             "guidance_scale": guidance_scale,
             "num_frames": num_frames,
             "seed": seed,
+            "model": model_id,
         },
     )
 

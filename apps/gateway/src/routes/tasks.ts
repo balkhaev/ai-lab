@@ -1,3 +1,9 @@
+import type {
+  QueueStats,
+  Task,
+  TaskListResponse,
+  TaskResult,
+} from "@ai-lab/shared/types";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -8,43 +14,6 @@ const tasks = new Hono();
 
 // Task types
 const taskTypeSchema = z.enum(["video", "image", "image2image", "llm_compare"]);
-const taskStatusSchema = z.enum([
-  "pending",
-  "processing",
-  "completed",
-  "failed",
-  "cancelled",
-]);
-
-// Request/Response types
-type TaskResponse = {
-  id: string;
-  type: z.infer<typeof taskTypeSchema>;
-  status: z.infer<typeof taskStatusSchema>;
-  progress: number;
-  error: string | null;
-  created_at: string;
-  updated_at: string;
-  user_id: string | null;
-};
-
-type TaskResultResponse = {
-  id: string;
-  type: z.infer<typeof taskTypeSchema>;
-  status: z.infer<typeof taskStatusSchema>;
-  result: Record<string, unknown> | null;
-  error: string | null;
-};
-
-type TaskListResponse = {
-  tasks: TaskResponse[];
-  total: number;
-};
-
-type QueueStats = {
-  pending: number;
-  processing: number;
-};
 
 // Schemas
 const createTaskSchema = z.object({
@@ -68,7 +37,7 @@ tasks.post("/", zValidator("json", createTaskSchema), async (c) => {
     return c.json({ error: `Failed to create task: ${error}` }, 500);
   }
 
-  const data = (await response.json()) as TaskResponse;
+  const data = (await response.json()) as Task;
   return c.json(data);
 });
 
@@ -118,7 +87,7 @@ tasks.get("/:taskId", async (c) => {
     return c.json({ error: "Failed to get task status" }, 500);
   }
 
-  const data = (await response.json()) as TaskResponse;
+  const data = (await response.json()) as Task;
   return c.json(data);
 });
 
@@ -139,7 +108,7 @@ tasks.get("/:taskId/result", async (c) => {
     return c.json({ error: "Failed to get task result" }, 500);
   }
 
-  const data = (await response.json()) as TaskResultResponse;
+  const data = (await response.json()) as TaskResult;
   return c.json(data);
 });
 
@@ -158,7 +127,7 @@ tasks.post("/:taskId/cancel", async (c) => {
     return c.json({ error: "Failed to cancel task" }, 500);
   }
 
-  const data = (await response.json()) as TaskResponse;
+  const data = (await response.json()) as Task;
   return c.json(data);
 });
 

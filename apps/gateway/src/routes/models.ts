@@ -1,3 +1,11 @@
+import type {
+  CacheListResponse,
+  DeleteCacheResponse,
+  DownloadModelResponse,
+  LoadModelResponse,
+  ModelsListResponse,
+  UnloadModelResponse,
+} from "@ai-lab/shared/types";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -38,69 +46,6 @@ const downloadCacheSchema = z.object({
   model_type: modelTypeSchema,
   revision: z.string().optional(),
 });
-
-// Types
-type ModelsListResponse = {
-  models: Array<{
-    model_id: string;
-    model_type: string;
-    status: string;
-    name: string;
-    loaded_at: string | null;
-    memory_usage_mb: number | null;
-    error: string | null;
-  }>;
-  gpu_memory_total_mb: number | null;
-  gpu_memory_used_mb: number | null;
-  gpu_memory_free_mb: number | null;
-  disk_total_gb: number | null;
-  disk_used_gb: number | null;
-  disk_free_gb: number | null;
-};
-
-type LoadModelResponse = {
-  model_id: string;
-  status: string;
-  message: string;
-};
-
-type UnloadModelResponse = {
-  model_id: string;
-  status: string;
-  message: string;
-  freed_memory_mb: number | null;
-};
-
-// Cache types
-type CachedModel = {
-  repo_id: string;
-  repo_type: string;
-  size_on_disk: number;
-  nb_files: number;
-  last_accessed: string | null;
-  last_modified: string | null;
-  revisions: string[];
-};
-
-type CacheListResponse = {
-  models: CachedModel[];
-  total_size_bytes: number;
-  cache_dir: string;
-};
-
-type DownloadModelResponse = {
-  repo_id: string;
-  status: string;
-  message: string;
-  size_bytes: number | null;
-};
-
-type DeleteCacheResponse = {
-  repo_id: string;
-  status: string;
-  message: string;
-  freed_bytes: number | null;
-};
 
 // Get all models with GPU memory info
 models.get("/", async (c) => {

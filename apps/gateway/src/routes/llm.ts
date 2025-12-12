@@ -1,3 +1,4 @@
+import type { ChatMessage } from "@ai-lab/shared/types";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
@@ -65,23 +66,6 @@ const compareSchema = z.object({
     })
     .optional(),
 });
-
-type TextContent = {
-  type: "text";
-  text: string;
-};
-
-type ImageContent = {
-  type: "image_url";
-  image_url: { url: string };
-};
-
-type ContentPart = TextContent | ImageContent;
-
-type ChatMessage = {
-  role: "system" | "user" | "assistant";
-  content: string | ContentPart[];
-};
 
 type AIApiResponse = {
   model: string;

@@ -1,3 +1,11 @@
+import type {
+  HealthResponse,
+  Image2ImageResponse,
+  ImageGenerationResponse,
+  ImageTo3DTaskResponse,
+  Task,
+  VideoTaskResponse,
+} from "@ai-lab/shared/types";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -5,9 +13,11 @@ import {
   getAllImage2ImagePresets,
   getAllImagePresets,
   getAllImageTo3DPresets,
+  getAllVideoPresets,
   getImage2ImagePreset,
   getImagePreset,
   getImageTo3DPreset,
+  getVideoPreset,
 } from "../presets";
 
 const AI_API_URL = process.env.AI_API_URL || "http://localhost:8000";
@@ -26,62 +36,6 @@ const imageSchema = z.object({
   model: z.string().optional(),
 });
 
-type ImageGenerationResponse = {
-  image_base64: string;
-  seed: number;
-  generation_time: number;
-};
-
-type Image2ImageResponse = {
-  image_base64: string;
-  seed: number;
-  generation_time: number;
-};
-
-type VideoTaskResponse = {
-  task_id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  progress: number | null;
-  video_base64: string | null;
-  error: string | null;
-};
-
-type TaskResponse = {
-  id: string;
-  type: "video" | "image" | "image2image" | "image_to_3d" | "llm_compare";
-  status: "pending" | "processing" | "completed" | "failed" | "cancelled";
-  progress: number;
-  error: string | null;
-  created_at: string;
-  updated_at: string;
-  user_id: string | null;
-};
-
-type ImageTo3DResult = {
-  point_cloud_ply_base64: string | null;
-  point_cloud_array: number[][] | null;
-  depth_map: number[][] | null;
-  normal_map: number[][][] | null;
-  camera_params: Record<string, unknown> | null;
-  gaussians: Record<string, unknown> | null;
-  generation_time: number;
-};
-
-type ImageTo3DTaskResponse = {
-  task_id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  progress: number | null;
-  result: ImageTo3DResult | null;
-  error: string | null;
-};
-
-type HealthResponse = {
-  status: string;
-  device: string;
-  cuda_available: boolean;
-  models_loaded: string[];
-};
-
 // Health check for AI API service
 media.get("/health", async (c) => {
   const response = await fetch(`${AI_API_URL}/health`);
@@ -96,27 +50,39 @@ media.get("/health", async (c) => {
 
 // Get available text2image models with presets
 media.get("/image/models", async (c) => {
-  const response = await fetch(`${AI_API_URL}/generate/image/models`);
+  try {
+    const response = await fetch(`${AI_API_URL}/generate/image/models`);
 
-  if (!response.ok) {
-    return c.json({ error: "Failed to get models list" }, 500);
+    if (response.ok) {
+      const data = (await response.json()) as {
+        models: string[];
+        current_model: string | null;
+      };
+
+      // Add presets from gateway
+      const allPresets = getAllImagePresets();
+      const presets: Record<string, ReturnType<typeof getImagePreset>> = {};
+      for (const model of data.models) {
+        presets[model] = allPresets[model] ?? getImagePreset(model);
+      }
+
+      return c.json({
+        ...data,
+        presets,
+      });
+    }
+  } catch {
+    // ai-api is not available, fallback to presets
   }
 
-  const data = (await response.json()) as {
-    models: string[];
-    current_model: string | null;
-  };
-
-  // Add presets from gateway
+  // Fallback: return models from presets when ai-api is unavailable
   const allPresets = getAllImagePresets();
-  const presets: Record<string, ReturnType<typeof getImagePreset>> = {};
-  for (const model of data.models) {
-    presets[model] = allPresets[model] ?? getImagePreset(model);
-  }
+  const models = Object.keys(allPresets);
 
   return c.json({
-    ...data,
-    presets,
+    models,
+    current_model: null,
+    presets: allPresets,
   });
 });
 
@@ -158,27 +124,42 @@ media.post("/image", zValidator("json", imageSchema), async (c) => {
 
 // Get available image2image models with presets
 media.get("/image2image/models", async (c) => {
-  const response = await fetch(`${AI_API_URL}/generate/image2image/models`);
+  try {
+    const response = await fetch(`${AI_API_URL}/generate/image2image/models`);
 
-  if (!response.ok) {
-    return c.json({ error: "Failed to get models list" }, 500);
+    if (response.ok) {
+      const data = (await response.json()) as {
+        models: string[];
+        current_model: string | null;
+      };
+
+      // Add presets from gateway
+      const allPresets = getAllImage2ImagePresets();
+      const presets: Record<
+        string,
+        ReturnType<typeof getImage2ImagePreset>
+      > = {};
+      for (const model of data.models) {
+        presets[model] = allPresets[model] ?? getImage2ImagePreset(model);
+      }
+
+      return c.json({
+        ...data,
+        presets,
+      });
+    }
+  } catch {
+    // ai-api is not available, fallback to presets
   }
 
-  const data = (await response.json()) as {
-    models: string[];
-    current_model: string | null;
-  };
-
-  // Add presets from gateway
+  // Fallback: return models from presets when ai-api is unavailable
   const allPresets = getAllImage2ImagePresets();
-  const presets: Record<string, ReturnType<typeof getImage2ImagePreset>> = {};
-  for (const model of data.models) {
-    presets[model] = allPresets[model] ?? getImage2ImagePreset(model);
-  }
+  const models = Object.keys(allPresets);
 
   return c.json({
-    ...data,
-    presets,
+    models,
+    current_model: null,
+    presets: allPresets,
   });
 });
 
@@ -226,9 +207,68 @@ media.post("/image2image", async (c) => {
   return c.json(data);
 });
 
-// Generate video (start task)
+// Get available video models with presets
+media.get("/video/models", async (c) => {
+  try {
+    const response = await fetch(`${AI_API_URL}/generate/video/models`);
+
+    if (response.ok) {
+      const data = (await response.json()) as {
+        models: string[];
+        current_model: string | null;
+      };
+
+      // Add presets from gateway
+      const allPresets = getAllVideoPresets();
+      const presets: Record<string, ReturnType<typeof getVideoPreset>> = {};
+      for (const model of data.models) {
+        presets[model] = allPresets[model] ?? getVideoPreset(model);
+      }
+
+      return c.json({
+        ...data,
+        presets,
+      });
+    }
+  } catch {
+    // ai-api is not available, fallback to presets
+  }
+
+  // Fallback: return models from presets when ai-api is unavailable
+  const allPresets = getAllVideoPresets();
+  const models = Object.keys(allPresets);
+
+  return c.json({
+    models,
+    current_model: null,
+    presets: allPresets,
+  });
+});
+
+// Generate video (start task) with preset support
 media.post("/video", async (c) => {
   const formData = await c.req.formData();
+
+  // Get model from form data to apply preset
+  const model = formData.get("model")?.toString() ?? "";
+  const preset = getVideoPreset(model);
+
+  // Apply preset defaults for unspecified parameters
+  if (
+    !formData.has("num_inference_steps") ||
+    formData.get("num_inference_steps") === ""
+  ) {
+    formData.set("num_inference_steps", preset.num_inference_steps.toString());
+  }
+  if (
+    !formData.has("guidance_scale") ||
+    formData.get("guidance_scale") === ""
+  ) {
+    formData.set("guidance_scale", preset.guidance_scale.toString());
+  }
+  if (!formData.has("num_frames") || formData.get("num_frames") === "") {
+    formData.set("num_frames", preset.num_frames.toString());
+  }
 
   const response = await fetch(`${AI_API_URL}/generate/video`, {
     method: "POST",
@@ -240,7 +280,7 @@ media.post("/video", async (c) => {
     return c.json({ error: `Failed to start video generation: ${error}` }, 500);
   }
 
-  const data = (await response.json()) as TaskResponse;
+  const data = (await response.json()) as Task;
   return c.json(data);
 });
 
@@ -265,27 +305,39 @@ media.get("/video/status/:taskId", async (c) => {
 
 // Get available image-to-3D models with presets
 media.get("/image-to-3d/models", async (c) => {
-  const response = await fetch(`${AI_API_URL}/generate/image-to-3d/models`);
+  try {
+    const response = await fetch(`${AI_API_URL}/generate/image-to-3d/models`);
 
-  if (!response.ok) {
-    return c.json({ error: "Failed to get models list" }, 500);
+    if (response.ok) {
+      const data = (await response.json()) as {
+        models: string[];
+        current_model: string | null;
+      };
+
+      // Add presets from gateway
+      const allPresets = getAllImageTo3DPresets();
+      const presets: Record<string, ReturnType<typeof getImageTo3DPreset>> = {};
+      for (const model of data.models) {
+        presets[model] = allPresets[model] ?? getImageTo3DPreset(model);
+      }
+
+      return c.json({
+        ...data,
+        presets,
+      });
+    }
+  } catch {
+    // ai-api is not available, fallback to presets
   }
 
-  const data = (await response.json()) as {
-    models: string[];
-    current_model: string | null;
-  };
-
-  // Add presets from gateway
+  // Fallback: return models from presets when ai-api is unavailable
   const allPresets = getAllImageTo3DPresets();
-  const presets: Record<string, ReturnType<typeof getImageTo3DPreset>> = {};
-  for (const model of data.models) {
-    presets[model] = allPresets[model] ?? getImageTo3DPreset(model);
-  }
+  const models = Object.keys(allPresets);
 
   return c.json({
-    ...data,
-    presets,
+    models,
+    current_model: null,
+    presets: allPresets,
   });
 });
 
@@ -316,7 +368,7 @@ media.post("/image-to-3d", async (c) => {
     );
   }
 
-  const data = (await response.json()) as TaskResponse;
+  const data = (await response.json()) as Task;
   return c.json(data);
 });
 

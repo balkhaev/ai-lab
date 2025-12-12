@@ -16,6 +16,7 @@ from config import get_device, VIDEO_MODEL, IMAGE_MODEL, IMAGE2IMAGE_MODEL, IMAG
 from models.management import ModelType
 from models.queue import TaskStatus, TaskType
 from services.orchestrator import orchestrator
+from services.loaders import is_longcat_model
 from services.queue import (
     get_next_pending_task,
     get_task,
@@ -116,17 +117,32 @@ async def process_image2image_task(task_id: str, params: dict) -> dict:
     
     # Generate
     actual_seed = seed if seed is not None else torch.randint(0, 2**32, (1,)).item()
-    generator = torch.Generator(device=get_device()).manual_seed(actual_seed)
     
-    result = pipe(
-        prompt=prompt,
-        negative_prompt=negative_prompt if negative_prompt else None,
-        image=pil_image,
-        strength=strength,
-        num_inference_steps=num_inference_steps,
-        guidance_scale=guidance_scale,
-        generator=generator,
-    )
+    # LongCat uses different generator device (cpu) and API
+    if is_longcat_model(model):
+        generator = torch.Generator("cpu").manual_seed(actual_seed)
+        # LongCat-Image-Edit API: pipe(image, prompt, ...)
+        # Does not use strength parameter
+        result = pipe(
+            pil_image,
+            prompt,
+            negative_prompt=negative_prompt if negative_prompt else "",
+            guidance_scale=guidance_scale,
+            num_inference_steps=num_inference_steps,
+            num_images_per_prompt=1,
+            generator=generator,
+        )
+    else:
+        generator = torch.Generator(device=get_device()).manual_seed(actual_seed)
+        result = pipe(
+            prompt=prompt,
+            negative_prompt=negative_prompt if negative_prompt else None,
+            image=pil_image,
+            strength=strength,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            generator=generator,
+        )
     
     output_image = result.images[0]
     
@@ -164,6 +180,7 @@ async def process_video_task(task_id: str, params: dict) -> dict:
     guidance_scale = params.get("guidance_scale", 6.0)
     num_frames = params.get("num_frames", 49)
     seed = params.get("seed")
+    model = params.get("model") or VIDEO_MODEL
     
     # Decode input image
     image_data = base64.b64decode(image_base64)
@@ -173,7 +190,7 @@ async def process_video_task(task_id: str, params: dict) -> dict:
     await update_task(task_id, progress=10.0)
     
     # Load model using orchestrator
-    loaded_model = await orchestrator.ensure_loaded(VIDEO_MODEL, ModelType.VIDEO)
+    loaded_model = await orchestrator.ensure_loaded(model, ModelType.VIDEO)
     pipe = loaded_model.instance
     model_family = loaded_model.metadata.get("video_family", VideoModelFamily.UNKNOWN.value)
     

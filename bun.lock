@@ -22,6 +22,7 @@
       "dependencies": {
         "@ai-lab/auth": "workspace:*",
         "@ai-lab/db": "workspace:*",
+        "@ai-lab/shared": "workspace:*",
         "@hono/zod-validator": "^0.4.3",
         "better-auth": "catalog:",
         "dotenv": "catalog:",
@@ -40,6 +41,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@ai-lab/auth": "workspace:*",
+        "@ai-lab/shared": "workspace:*",
         "@hookform/resolvers": "^5.2.2",
         "@prisma/client": "catalog:",
         "@radix-ui/react-accordion": "^1.2.12",
@@ -122,7 +124,13 @@
     },
     "packages/config": {
       "name": "@ai-lab/config",
-      "version": "0.0.0",
+      "version": "0.0.1",
+      "dependencies": {
+        "zod": "^4.1.11",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+      },
     },
     "packages/db": {
       "name": "@ai-lab/db",
@@ -142,6 +150,19 @@
         "typescript": "^5",
       },
     },
+    "packages/shared": {
+      "name": "@ai-lab/shared",
+      "version": "0.0.1",
+      "dependencies": {
+        "zod": "^4.1.11",
+      },
+      "devDependencies": {
+        "@ai-lab/config": "workspace:*",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+      },
+    },
   },
   "catalog": {
     "@prisma/client": "^7.0.1",
@@ -154,6 +175,8 @@
     "@ai-lab/config": ["@ai-lab/config@workspace:packages/config"],
 
     "@ai-lab/db": ["@ai-lab/db@workspace:packages/db"],
+
+    "@ai-lab/shared": ["@ai-lab/shared@workspace:packages/shared"],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 

@@ -38,11 +38,13 @@ IMAGE_MODELS = [
 # Uses SDXL refiner or base models via AutoPipelineForImage2Image
 IMAGE2IMAGE_MODEL = os.environ.get("IMAGE2IMAGE_MODEL", "stabilityai/stable-diffusion-xl-refiner-1.0")
 # Available image2image models for selection
+# Note: Virtual LoRA model IDs (e.g., "nsfw-undress") are defined in services/loaders/image.py
 IMAGE2IMAGE_MODELS = [
     "stabilityai/stable-diffusion-xl-refiner-1.0",  # SDXL refiner, good for img2img
     "stabilityai/stable-diffusion-xl-base-1.0",  # SDXL base
     "Heartsync/NSFW-Uncensored",  # SDXL-based, uncensored content (NSFW)
-    # "Tongyi-MAI/Z-Image-Edit",  # Coming soon - text-guided editing
+    "meituan-longcat/LongCat-Image-Edit",  # SOTA image editing, bilingual (CN/EN), ~19GB VRAM
+    "nsfw-undress",  # Virtual: NSFW-Uncensored + sexy LoRA for undress generation
 ]
 # Video models - supports multiple families with automatic pipeline detection
 # Supported models:

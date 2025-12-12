@@ -3,6 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
+  Box,
   CheckCircle2,
   Clock,
   Image,
@@ -35,6 +36,7 @@ const TASK_TYPE_ICONS: Record<TaskType, typeof Video> = {
   video: Video,
   image: Image,
   image2image: Layers,
+  image_to_3d: Box,
   llm_compare: MessageSquare,
 };
 
@@ -42,6 +44,7 @@ const TASK_TYPE_LABELS: Record<TaskType, string> = {
   video: "Видео",
   image: "Изображение",
   image2image: "Image2Image",
+  image_to_3d: "3D",
   llm_compare: "Сравнение LLM",
 };
 

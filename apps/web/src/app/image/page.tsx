@@ -3,21 +3,21 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Check,
-  Clock,
   Copy,
   Download,
   ImageIcon,
   Loader2,
-  Settings2,
   Sparkles,
   Upload,
   Wand2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { GalleryGrid, type GalleryItem } from "@/components/gallery-grid";
+import { PageHeader, PageLayout, SettingsSidebar } from "@/components/layout";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardGlass } from "@/components/ui/card";
+import { CardContent, CardGlass } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -308,671 +308,559 @@ export default function ImagePage() {
     setHeight(preset.height);
   };
 
-  const formatTime = (seconds: number) => {
-    if (seconds < 1) {
-      return `${(seconds * 1000).toFixed(0)}ms`;
-    }
-    return `${seconds.toFixed(2)}s`;
-  };
-
   const canGenerate =
     activeTab === "text2image"
       ? prompt.trim().length > 0
       : prompt.trim().length > 0 && inputImage !== null;
 
-  return (
-    <div className="flex h-full flex-col lg:flex-row">
-      {/* Main content area */}
-      <div className="flex-1 overflow-auto p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="mb-2 font-bold text-2xl tracking-tight">
-            <span className="gradient-neon-text">Генерация</span> изображений
-          </h1>
-          <p className="text-muted-foreground">
-            Создавайте и трансформируйте изображения с помощью AI
+  // Convert gallery to GalleryItem format
+  const galleryItems: GalleryItem[] = gallery.map((img, index) => ({
+    id: `${img.seed}-${index}`,
+    type: "image" as const,
+    image_base64: img.image_base64,
+    prompt: img.prompt,
+    seed: img.seed,
+    generation_time: img.generation_time,
+    mode: img.mode,
+  }));
+
+  const t2iSidebarContent = (
+    <div className="space-y-6">
+      {/* Model selector */}
+      {t2iModelsData !== null &&
+      t2iModelsData !== undefined &&
+      t2iModelsData.models.length > 0 ? (
+        <div className="space-y-3">
+          <Label className="font-medium text-sm">Модель</Label>
+          <Select
+            onValueChange={handleT2IModelChange}
+            value={
+              selectedT2IModel ||
+              t2iModelsData.current_model ||
+              t2iModelsData.models[0]
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Выберите модель" />
+            </SelectTrigger>
+            <SelectContent>
+              {t2iModelsData.models.map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model.split("/").pop()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-muted-foreground text-xs">
+            Z-Image-Turbo — быстрая генерация, NSFW — без цензуры
           </p>
         </div>
+      ) : null}
 
-        {/* Mode tabs */}
-        <Tabs
-          className="mb-6"
-          onValueChange={(v) => setActiveTab(v as "text2image" | "image2image")}
-          value={activeTab}
-        >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger className="flex items-center gap-2" value="text2image">
-              <Wand2 className="h-4 w-4" />
-              Text to Image
-            </TabsTrigger>
-            <TabsTrigger
-              className="flex items-center gap-2"
-              value="image2image"
+      {/* Size presets */}
+      <div className="space-y-3">
+        <Label className="font-medium text-sm">Размер</Label>
+        <div className="flex flex-wrap gap-2">
+          {PRESET_SIZES.map((preset) => (
+            <Button
+              key={preset.label}
+              onClick={() => selectPresetSize(preset)}
+              size="sm"
+              variant={
+                width === preset.width && height === preset.height
+                  ? "default"
+                  : "outline"
+              }
             >
-              <ImageIcon className="h-4 w-4" />
-              Image to Image
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent className="mt-4" value="text2image">
-            <CardGlass>
-              <CardContent className="space-y-4 pt-6">
-                <div className="space-y-2">
-                  <Label className="font-medium text-sm" htmlFor="prompt-t2i">
-                    Промпт
-                  </Label>
-                  <Textarea
-                    className="min-h-[120px] resize-none"
-                    id="prompt-t2i"
-                    onChange={(e) => setPrompt(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                        handleGenerate();
-                      }
-                    }}
-                    placeholder="Опишите изображение, которое хотите создать..."
-                    value={prompt}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="font-medium text-sm" htmlFor="negative-t2i">
-                    Негативный промпт{" "}
-                    <span className="font-normal text-muted-foreground">
-                      (опционально)
-                    </span>
-                  </Label>
-                  <Textarea
-                    className="min-h-[60px] resize-none"
-                    id="negative-t2i"
-                    onChange={(e) => setNegativePrompt(e.target.value)}
-                    placeholder="Чего не должно быть на изображении..."
-                    value={negativePrompt}
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    className="flex-1"
-                    disabled={isGenerating || !prompt.trim()}
-                    onClick={handleGenerate}
-                    variant="neon"
-                  >
-                    {text2imageMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Генерация...
-                      </>
-                    ) : (
-                      <>
-                        <Wand2 className="mr-2 h-4 w-4" />
-                        Сгенерировать
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    className="lg:hidden"
-                    onClick={() => setShowSettings(!showSettings)}
-                    size="icon"
-                    variant="outline"
-                  >
-                    <Settings2 className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <p className="text-muted-foreground text-xs">
-                  Нажмите{" "}
-                  <kbd className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs">
-                    Ctrl
-                  </kbd>{" "}
-                  +{" "}
-                  <kbd className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs">
-                    Enter
-                  </kbd>{" "}
-                  для генерации
-                </p>
-              </CardContent>
-            </CardGlass>
-          </TabsContent>
-
-          <TabsContent className="mt-4" value="image2image">
-            <CardGlass>
-              <CardContent className="space-y-4 pt-6">
-                {/* Image upload area */}
-                <div className="space-y-2">
-                  <Label className="font-medium text-sm" htmlFor="image-upload">
-                    Исходное изображение
-                  </Label>
-                  <button
-                    className={cn(
-                      "relative flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors",
-                      inputImagePreview
-                        ? "border-primary/50 bg-primary/5"
-                        : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50"
-                    )}
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={handleDrop}
-                    type="button"
-                  >
-                    <input
-                      accept="image/*"
-                      className="sr-only"
-                      id="image-upload"
-                      onChange={handleFileSelect}
-                      ref={fileInputRef}
-                      type="file"
-                    />
-                    {inputImagePreview ? (
-                      <div className="relative w-full">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          alt="Input"
-                          className="mx-auto max-h-[300px] rounded-lg object-contain"
-                          height={300}
-                          src={inputImagePreview}
-                          width={300}
-                        />
-                        <Button
-                          className="absolute top-2 right-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setInputImage(null);
-                            setInputImagePreview(null);
-                          }}
-                          size="icon"
-                          variant="secondary"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-2 p-6 text-center">
-                        <Upload className="h-10 w-10 text-muted-foreground" />
-                        <p className="text-muted-foreground text-sm">
-                          Перетащите изображение сюда или нажмите для выбора
-                        </p>
-                        <p className="text-muted-foreground/70 text-xs">
-                          PNG, JPG, WEBP до 10MB
-                        </p>
-                      </div>
-                    )}
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="font-medium text-sm" htmlFor="prompt-i2i">
-                    Промпт трансформации
-                  </Label>
-                  <Textarea
-                    className="min-h-[100px] resize-none"
-                    id="prompt-i2i"
-                    onChange={(e) => setPrompt(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                        handleGenerate();
-                      }
-                    }}
-                    placeholder="Опишите, как нужно изменить изображение..."
-                    value={prompt}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="font-medium text-sm" htmlFor="negative-i2i">
-                    Негативный промпт{" "}
-                    <span className="font-normal text-muted-foreground">
-                      (опционально)
-                    </span>
-                  </Label>
-                  <Textarea
-                    className="min-h-[60px] resize-none"
-                    id="negative-i2i"
-                    onChange={(e) => setNegativePrompt(e.target.value)}
-                    placeholder="Чего не должно быть на изображении..."
-                    value={negativePrompt}
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    className="flex-1"
-                    disabled={isGenerating || !canGenerate}
-                    onClick={handleGenerate}
-                    variant="neon"
-                  >
-                    {image2imageMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Трансформация...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Трансформировать
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    className="lg:hidden"
-                    onClick={() => setShowSettings(!showSettings)}
-                    size="icon"
-                    variant="outline"
-                  >
-                    <Settings2 className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <p className="text-muted-foreground text-xs">
-                  Загрузите изображение и опишите желаемые изменения
-                </p>
-              </CardContent>
-            </CardGlass>
-          </TabsContent>
-        </Tabs>
-
-        {/* Current generation */}
-        {isGenerating ? (
-          <Card className="mb-6 overflow-hidden">
-            <CardContent className="p-0">
-              <div className="relative aspect-square max-h-[400px] w-full">
-                <Skeleton className="h-full w-full" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm">
-                  <div className="mb-4 h-16 w-16 animate-glow-pulse rounded-full border-2 border-primary/50">
-                    <Sparkles className="h-full w-full p-4 text-primary" />
-                  </div>
-                  <p className="text-muted-foreground text-sm">
-                    {activeTab === "text2image"
-                      ? "Создаём изображение..."
-                      : "Трансформируем изображение..."}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {/* Gallery */}
-        {gallery.length > 0 && (
-          <div className="space-y-4">
-            <h2 className="font-semibold text-lg">
-              Галерея{" "}
-              <span className="font-normal text-muted-foreground">
-                ({gallery.length})
-              </span>
-            </h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {gallery.map((image, index) => (
-                <Card
-                  className="group cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-[0_0_30px_rgba(255,45,117,0.2)]"
-                  key={`${image.seed}-${index}`}
-                  onClick={() => setSelectedImage(image)}
-                >
-                  <div className="relative aspect-square">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      alt={image.prompt}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      height={512}
-                      src={`data:image/png;base64,${image.image_base64}`}
-                      width={512}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/70 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDownload(image);
-                        }}
-                        size="sm"
-                        variant="secondary"
-                      >
-                        <Download className="mr-1 h-4 w-4" />
-                        Скачать
-                      </Button>
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCopySeed(image.seed);
-                        }}
-                        size="sm"
-                        variant="secondary"
-                      >
-                        {copiedSeed === image.seed ? (
-                          <Check className="mr-1 h-4 w-4 text-green-500" />
-                        ) : (
-                          <Copy className="mr-1 h-4 w-4" />
-                        )}
-                        Seed
-                      </Button>
-                    </div>
-                  </div>
-                  <CardContent className="p-3">
-                    <p className="mb-2 line-clamp-2 text-muted-foreground text-sm">
-                      {image.prompt}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge className="text-xs" variant="neon">
-                        <Clock className="mr-1 h-3 w-3" />
-                        {formatTime(image.generation_time)}
-                      </Badge>
-                      <Badge className="text-xs" variant="outline">
-                        Seed: {image.seed}
-                      </Badge>
-                      <Badge
-                        className="text-xs"
-                        variant={
-                          image.mode === "text2image" ? "default" : "secondary"
-                        }
-                      >
-                        {image.mode === "text2image" ? "T2I" : "I2I"}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+              {preset.label}
+            </Button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-muted-foreground text-xs">Ширина</Label>
+            <Input
+              max={2048}
+              min={256}
+              onChange={(e) => setWidth(Number(e.target.value))}
+              step={64}
+              type="number"
+              value={width}
+            />
           </div>
-        )}
-
-        {/* Empty state */}
-        {!isGenerating && gallery.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 rounded-full bg-secondary p-4">
-              <ImageIcon className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="mb-2 font-medium">Нет изображений</h3>
-            <p className="max-w-sm text-muted-foreground text-sm">
-              {activeTab === "text2image"
-                ? "Введите промпт и нажмите кнопку генерации, чтобы создать своё первое изображение"
-                : "Загрузите изображение, введите промпт и нажмите кнопку трансформации"}
-            </p>
+          <div className="space-y-1">
+            <Label className="text-muted-foreground text-xs">Высота</Label>
+            <Input
+              max={2048}
+              min={256}
+              onChange={(e) => setHeight(Number(e.target.value))}
+              step={64}
+              type="number"
+              value={height}
+            />
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Settings sidebar */}
-      <aside
-        className={cn(
-          "w-full border-border/50 border-l bg-card/50 backdrop-blur-sm lg:w-[320px]",
-          showSettings ? "block" : "hidden lg:block"
-        )}
-      >
-        <div className="sticky top-0 h-full overflow-auto p-6">
-          <div className="mb-6 flex items-center justify-between lg:hidden">
-            <h3 className="font-semibold">Настройки</h3>
-            <Button
-              onClick={() => setShowSettings(false)}
-              size="icon"
-              variant="ghost"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {activeTab === "text2image" ? (
-            <div className="space-y-6">
-              {/* Model selector */}
-              {t2iModelsData !== null &&
-              t2iModelsData !== undefined &&
-              t2iModelsData.models.length > 0 ? (
-                <div className="space-y-3">
-                  <Label className="font-medium text-sm">Модель</Label>
-                  <Select
-                    onValueChange={handleT2IModelChange}
-                    value={
-                      selectedT2IModel ||
-                      t2iModelsData.current_model ||
-                      t2iModelsData.models[0]
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите модель" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {t2iModelsData.models.map((model) => (
-                        <SelectItem key={model} value={model}>
-                          {model.split("/").pop()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-muted-foreground text-xs">
-                    Z-Image-Turbo — быстрая генерация, NSFW — без цензуры
-                  </p>
-                </div>
-              ) : null}
-
-              {/* Size presets */}
-              <div className="space-y-3">
-                <Label className="font-medium text-sm">Размер</Label>
-                <div className="flex flex-wrap gap-2">
-                  {PRESET_SIZES.map((preset) => (
-                    <Button
-                      key={preset.label}
-                      onClick={() => selectPresetSize(preset)}
-                      size="sm"
-                      variant={
-                        width === preset.width && height === preset.height
-                          ? "default"
-                          : "outline"
-                      }
-                    >
-                      {preset.label}
-                    </Button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <Label className="text-muted-foreground text-xs">
-                      Ширина
-                    </Label>
-                    <Input
-                      max={2048}
-                      min={256}
-                      onChange={(e) => setWidth(Number(e.target.value))}
-                      step={64}
-                      type="number"
-                      value={width}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-muted-foreground text-xs">
-                      Высота
-                    </Label>
-                    <Input
-                      max={2048}
-                      min={256}
-                      onChange={(e) => setHeight(Number(e.target.value))}
-                      step={64}
-                      type="number"
-                      value={height}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Steps slider */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="font-medium text-sm">Steps</Label>
-                  <span className="font-mono text-primary text-sm">
-                    {steps}
-                  </span>
-                </div>
-                <Slider
-                  max={50}
-                  min={1}
-                  onValueChange={([v]) => setSteps(v)}
-                  step={1}
-                  value={[steps]}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Больше шагов = выше качество, дольше генерация
-                </p>
-              </div>
-
-              {/* Guidance scale slider */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="font-medium text-sm">Guidance Scale</Label>
-                  <span className="font-mono text-primary text-sm">
-                    {guidanceScale.toFixed(1)}
-                  </span>
-                </div>
-                <Slider
-                  max={20}
-                  min={0}
-                  onValueChange={([v]) => setGuidanceScale(v)}
-                  step={0.5}
-                  value={[guidanceScale]}
-                />
-                <p className="text-muted-foreground text-xs">
-                  0 для Z-Image-Turbo, выше для других моделей
-                </p>
-              </div>
-
-              {/* Seed input */}
-              <div className="space-y-3">
-                <Label className="font-medium text-sm">
-                  Seed{" "}
-                  <span className="font-normal text-muted-foreground">
-                    (опционально)
-                  </span>
-                </Label>
-                <Input
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSeed(val ? Number(val) : null);
-                  }}
-                  placeholder="Случайный"
-                  type="number"
-                  value={seed ?? ""}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Для воспроизводимых результатов
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Model selector */}
-              {i2iModelsData !== null &&
-              i2iModelsData !== undefined &&
-              i2iModelsData.models.length > 0 ? (
-                <div className="space-y-3">
-                  <Label className="font-medium text-sm">Модель</Label>
-                  <Select
-                    onValueChange={handleI2IModelChange}
-                    value={
-                      selectedI2IModel ||
-                      i2iModelsData.current_model ||
-                      i2iModelsData.models[0]
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите модель" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {i2iModelsData.models.map((model) => (
-                        <SelectItem key={model} value={model}>
-                          {model.split("/").pop()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-muted-foreground text-xs">
-                    SDXL Refiner — качество, NSFW-Uncensored — без цензуры
-                  </p>
-                </div>
-              ) : null}
-
-              {/* Strength slider */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="font-medium text-sm">
-                    Сила трансформации
-                  </Label>
-                  <span className="font-mono text-primary text-sm">
-                    {(strength * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <Slider
-                  max={1}
-                  min={0}
-                  onValueChange={([v]) => setStrength(v)}
-                  step={0.05}
-                  value={[strength]}
-                />
-                <p className="text-muted-foreground text-xs">
-                  0% = оригинал, 100% = полная трансформация
-                </p>
-              </div>
-
-              {/* Steps slider */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="font-medium text-sm">Steps</Label>
-                  <span className="font-mono text-primary text-sm">
-                    {i2iSteps}
-                  </span>
-                </div>
-                <Slider
-                  max={100}
-                  min={1}
-                  onValueChange={([v]) => setI2iSteps(v)}
-                  step={1}
-                  value={[i2iSteps]}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Больше шагов = выше качество
-                </p>
-              </div>
-
-              {/* Guidance scale slider */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="font-medium text-sm">Guidance Scale</Label>
-                  <span className="font-mono text-primary text-sm">
-                    {i2iGuidanceScale.toFixed(1)}
-                  </span>
-                </div>
-                <Slider
-                  max={20}
-                  min={1}
-                  onValueChange={([v]) => setI2iGuidanceScale(v)}
-                  step={0.5}
-                  value={[i2iGuidanceScale]}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Выше = точнее следует промпту
-                </p>
-              </div>
-
-              {/* Seed input */}
-              <div className="space-y-3">
-                <Label className="font-medium text-sm">
-                  Seed{" "}
-                  <span className="font-normal text-muted-foreground">
-                    (опционально)
-                  </span>
-                </Label>
-                <Input
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSeed(val ? Number(val) : null);
-                  }}
-                  placeholder="Случайный"
-                  type="number"
-                  value={seed ?? ""}
-                />
-                <p className="text-muted-foreground text-xs">
-                  Для воспроизводимых результатов
-                </p>
-              </div>
-            </div>
-          )}
+      {/* Steps slider */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium text-sm">Steps</Label>
+          <span className="font-mono text-primary text-sm">{steps}</span>
         </div>
-      </aside>
+        <Slider
+          max={50}
+          min={1}
+          onValueChange={([v]) => setSteps(v)}
+          step={1}
+          value={[steps]}
+        />
+        <p className="text-muted-foreground text-xs">
+          Больше шагов = выше качество, дольше генерация
+        </p>
+      </div>
+
+      {/* Guidance scale slider */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium text-sm">Guidance Scale</Label>
+          <span className="font-mono text-primary text-sm">
+            {guidanceScale.toFixed(1)}
+          </span>
+        </div>
+        <Slider
+          max={20}
+          min={0}
+          onValueChange={([v]) => setGuidanceScale(v)}
+          step={0.5}
+          value={[guidanceScale]}
+        />
+        <p className="text-muted-foreground text-xs">
+          0 для Z-Image-Turbo, выше для других моделей
+        </p>
+      </div>
+
+      {/* Seed input */}
+      <div className="space-y-3">
+        <Label className="font-medium text-sm">
+          Seed{" "}
+          <span className="font-normal text-muted-foreground">
+            (опционально)
+          </span>
+        </Label>
+        <Input
+          onChange={(e) => {
+            const val = e.target.value;
+            setSeed(val ? Number(val) : null);
+          }}
+          placeholder="Случайный"
+          type="number"
+          value={seed ?? ""}
+        />
+        <p className="text-muted-foreground text-xs">
+          Для воспроизводимых результатов
+        </p>
+      </div>
+    </div>
+  );
+
+  const i2iSidebarContent = (
+    <div className="space-y-6">
+      {/* Model selector */}
+      {i2iModelsData !== null &&
+      i2iModelsData !== undefined &&
+      i2iModelsData.models.length > 0 ? (
+        <div className="space-y-3">
+          <Label className="font-medium text-sm">Модель</Label>
+          <Select
+            onValueChange={handleI2IModelChange}
+            value={
+              selectedI2IModel ||
+              i2iModelsData.current_model ||
+              i2iModelsData.models[0]
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Выберите модель" />
+            </SelectTrigger>
+            <SelectContent>
+              {i2iModelsData.models.map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model.split("/").pop()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-muted-foreground text-xs">
+            SDXL Refiner — качество, NSFW-Uncensored — без цензуры
+          </p>
+        </div>
+      ) : null}
+
+      {/* Strength slider */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium text-sm">Сила трансформации</Label>
+          <span className="font-mono text-primary text-sm">
+            {(strength * 100).toFixed(0)}%
+          </span>
+        </div>
+        <Slider
+          max={1}
+          min={0}
+          onValueChange={([v]) => setStrength(v)}
+          step={0.05}
+          value={[strength]}
+        />
+        <p className="text-muted-foreground text-xs">
+          0% = оригинал, 100% = полная трансформация
+        </p>
+      </div>
+
+      {/* Steps slider */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium text-sm">Steps</Label>
+          <span className="font-mono text-primary text-sm">{i2iSteps}</span>
+        </div>
+        <Slider
+          max={100}
+          min={1}
+          onValueChange={([v]) => setI2iSteps(v)}
+          step={1}
+          value={[i2iSteps]}
+        />
+        <p className="text-muted-foreground text-xs">
+          Больше шагов = выше качество
+        </p>
+      </div>
+
+      {/* Guidance scale slider */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="font-medium text-sm">Guidance Scale</Label>
+          <span className="font-mono text-primary text-sm">
+            {i2iGuidanceScale.toFixed(1)}
+          </span>
+        </div>
+        <Slider
+          max={20}
+          min={1}
+          onValueChange={([v]) => setI2iGuidanceScale(v)}
+          step={0.5}
+          value={[i2iGuidanceScale]}
+        />
+        <p className="text-muted-foreground text-xs">
+          Выше = точнее следует промпту
+        </p>
+      </div>
+
+      {/* Seed input */}
+      <div className="space-y-3">
+        <Label className="font-medium text-sm">
+          Seed{" "}
+          <span className="font-normal text-muted-foreground">
+            (опционально)
+          </span>
+        </Label>
+        <Input
+          onChange={(e) => {
+            const val = e.target.value;
+            setSeed(val ? Number(val) : null);
+          }}
+          placeholder="Случайный"
+          type="number"
+          value={seed ?? ""}
+        />
+        <p className="text-muted-foreground text-xs">
+          Для воспроизводимых результатов
+        </p>
+      </div>
+    </div>
+  );
+
+  const sidebarContent =
+    activeTab === "text2image" ? t2iSidebarContent : i2iSidebarContent;
+
+  return (
+    <PageLayout
+      sidebar={
+        <SettingsSidebar
+          onOpenChange={setShowSettings}
+          open={showSettings}
+          title="Параметры генерации"
+        >
+          {sidebarContent}
+        </SettingsSidebar>
+      }
+    >
+      {/* Header */}
+      <PageHeader
+        description="Создавайте и трансформируйте изображения с помощью AI"
+        highlight="Генерация"
+        onSettingsToggle={() => setShowSettings(true)}
+        showSettingsToggle
+        title="Генерация изображений"
+      />
+
+      {/* Mode tabs */}
+      <Tabs
+        className="mb-6"
+        onValueChange={(v) => setActiveTab(v as "text2image" | "image2image")}
+        value={activeTab}
+      >
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger className="flex items-center gap-2" value="text2image">
+            <Wand2 className="h-4 w-4" />
+            Text to Image
+          </TabsTrigger>
+          <TabsTrigger className="flex items-center gap-2" value="image2image">
+            <ImageIcon className="h-4 w-4" />
+            Image to Image
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent className="mt-4" value="text2image">
+          <CardGlass>
+            <CardContent className="space-y-4 pt-6">
+              <div className="space-y-2">
+                <Label className="font-medium text-sm" htmlFor="prompt-t2i">
+                  Промпт
+                </Label>
+                <Textarea
+                  className="min-h-[120px] resize-none"
+                  id="prompt-t2i"
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      handleGenerate();
+                    }
+                  }}
+                  placeholder="Опишите изображение, которое хотите создать..."
+                  value={prompt}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-medium text-sm" htmlFor="negative-t2i">
+                  Негативный промпт{" "}
+                  <span className="font-normal text-muted-foreground">
+                    (опционально)
+                  </span>
+                </Label>
+                <Textarea
+                  className="min-h-[60px] resize-none"
+                  id="negative-t2i"
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  placeholder="Чего не должно быть на изображении..."
+                  value={negativePrompt}
+                />
+              </div>
+
+              <Button
+                className="w-full"
+                disabled={isGenerating || !prompt.trim()}
+                onClick={handleGenerate}
+                variant="neon"
+              >
+                {text2imageMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Генерация...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Сгенерировать
+                  </>
+                )}
+              </Button>
+
+              <p className="text-muted-foreground text-xs">
+                Нажмите{" "}
+                <kbd className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs">
+                  Ctrl
+                </kbd>{" "}
+                +{" "}
+                <kbd className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs">
+                  Enter
+                </kbd>{" "}
+                для генерации
+              </p>
+            </CardContent>
+          </CardGlass>
+        </TabsContent>
+
+        <TabsContent className="mt-4" value="image2image">
+          <CardGlass>
+            <CardContent className="space-y-4 pt-6">
+              {/* Image upload area */}
+              <div className="space-y-2">
+                <Label className="font-medium text-sm" htmlFor="image-upload">
+                  Исходное изображение
+                </Label>
+                <button
+                  className={cn(
+                    "relative flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors",
+                    inputImagePreview
+                      ? "border-primary/50 bg-primary/5"
+                      : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50"
+                  )}
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                  type="button"
+                >
+                  <input
+                    accept="image/*"
+                    className="sr-only"
+                    id="image-upload"
+                    onChange={handleFileSelect}
+                    ref={fileInputRef}
+                    type="file"
+                  />
+                  {inputImagePreview ? (
+                    <div className="relative w-full">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        alt="Input"
+                        className="mx-auto max-h-[300px] rounded-lg object-contain"
+                        height={300}
+                        src={inputImagePreview}
+                        width={300}
+                      />
+                      <Button
+                        className="absolute top-2 right-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInputImage(null);
+                          setInputImagePreview(null);
+                        }}
+                        size="icon"
+                        variant="secondary"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 p-6 text-center">
+                      <Upload className="h-10 w-10 text-muted-foreground" />
+                      <p className="text-muted-foreground text-sm">
+                        Перетащите изображение сюда или нажмите для выбора
+                      </p>
+                      <p className="text-muted-foreground/70 text-xs">
+                        PNG, JPG, WEBP до 10MB
+                      </p>
+                    </div>
+                  )}
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-medium text-sm" htmlFor="prompt-i2i">
+                  Промпт трансформации
+                </Label>
+                <Textarea
+                  className="min-h-[100px] resize-none"
+                  id="prompt-i2i"
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      handleGenerate();
+                    }
+                  }}
+                  placeholder="Опишите, как нужно изменить изображение..."
+                  value={prompt}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-medium text-sm" htmlFor="negative-i2i">
+                  Негативный промпт{" "}
+                  <span className="font-normal text-muted-foreground">
+                    (опционально)
+                  </span>
+                </Label>
+                <Textarea
+                  className="min-h-[60px] resize-none"
+                  id="negative-i2i"
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  placeholder="Чего не должно быть на изображении..."
+                  value={negativePrompt}
+                />
+              </div>
+
+              <Button
+                className="w-full"
+                disabled={isGenerating || !canGenerate}
+                onClick={handleGenerate}
+                variant="neon"
+              >
+                {image2imageMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Трансформация...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Трансформировать
+                  </>
+                )}
+              </Button>
+
+              <p className="text-muted-foreground text-xs">
+                Загрузите изображение и опишите желаемые изменения
+              </p>
+            </CardContent>
+          </CardGlass>
+        </TabsContent>
+      </Tabs>
+
+      {/* Current generation */}
+      {isGenerating ? (
+        <div className="mb-6 overflow-hidden rounded-lg border">
+          <div className="relative aspect-square max-h-[400px] w-full">
+            <Skeleton className="h-full w-full" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm">
+              <div className="mb-4 h-16 w-16 animate-glow-pulse rounded-full border-2 border-primary/50">
+                <Sparkles className="h-full w-full p-4 text-primary" />
+              </div>
+              <p className="text-muted-foreground text-sm">
+                {activeTab === "text2image"
+                  ? "Создаём изображение..."
+                  : "Трансформируем изображение..."}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Gallery */}
+      <GalleryGrid
+        columns={3}
+        items={galleryItems}
+        onImageClick={(item) => {
+          const original = gallery.find((g) => g.seed === item.seed);
+          if (original) {
+            setSelectedImage(original);
+          }
+        }}
+        title="Галерея"
+      />
+
+      {/* Empty state */}
+      {!isGenerating && gallery.length === 0 && (
+        <EmptyState
+          description={
+            activeTab === "text2image"
+              ? "Введите промпт и нажмите кнопку генерации, чтобы создать своё первое изображение"
+              : "Загрузите изображение, введите промпт и нажмите кнопку трансформации"
+          }
+          icon={ImageIcon}
+          title="Нет изображений"
+        />
+      )}
 
       {/* Image lightbox */}
       {selectedImage ? (
@@ -1032,6 +920,6 @@ export default function ImagePage() {
           </div>
         </button>
       ) : null}
-    </div>
+    </PageLayout>
   );
 }

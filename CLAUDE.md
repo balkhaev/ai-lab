@@ -149,6 +149,16 @@ web                    gateway                 ai-api
 | SDXL Base       | 30    | 7.5      | ✅          |
 | NSFW-Uncensored | 30    | 7.0      | ✅          |
 
+**Image2Image Presets:**
+
+| Модель             | Steps | Guidance | Strength | VRAM  | Notes                                    |
+| ------------------ | ----- | -------- | -------- | ----- | ---------------------------------------- |
+| SDXL Refiner       | 30    | 7.5      | 0.3      | ~7GB  | Улучшает детали существующих изображений |
+| SDXL Base          | 30    | 7.5      | 0.75     | ~7GB  | Стандартная трансформация                |
+| NSFW-Uncensored    | 30    | 7.0      | 0.75     | ~7GB  | Без цензуры                              |
+| LongCat-Image-Edit | 50    | 4.5      | N/A      | ~19GB | SOTA билингвальный редактор (CN/EN)      |
+| NSFW Undress       | 30    | 7.0      | 0.65     | ~8GB  | NSFW + sexy LoRA для раздевания          |
+
 **Video Models:**
 
 | Модель           | VRAM  | Notes                 |

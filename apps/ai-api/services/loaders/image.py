@@ -3,12 +3,42 @@ Image model loaders using Diffusers
 """
 import gc
 import logging
+from dataclasses import dataclass
 
 import torch
 
 from config import get_device, get_dtype
 
 logger = logging.getLogger(__name__)
+
+
+# ============== LoRA Configurations ==============
+
+@dataclass
+class LoRAConfig:
+    """Configuration for a LoRA model"""
+    base_model_id: str  # Base SDXL model to use
+    lora_repo: str  # HuggingFace repo or local path
+    lora_weight_name: str | None = None  # safetensors filename (optional)
+    lora_scale: float = 1.0  # Adapter weight scale
+    trigger_word: str | None = None  # Trigger word to add to prompt
+
+
+# Virtual model IDs that map to base model + LoRA
+LORA_MODELS: dict[str, LoRAConfig] = {
+    "nsfw-undress": LoRAConfig(
+        base_model_id="Heartsync/NSFW-Uncensored",
+        lora_repo="ntc-ai/SDXL-LoRA-slider.sexy",
+        lora_weight_name="sexy.safetensors",
+        lora_scale=1.5,
+        trigger_word="sexy",
+    ),
+}
+
+
+def get_lora_config(model_id: str) -> LoRAConfig | None:
+    """Get LoRA config for a virtual model ID"""
+    return LORA_MODELS.get(model_id)
 
 
 # Memory estimates for image models (in MB)
@@ -18,6 +48,7 @@ IMAGE_MEMORY_ESTIMATES = {
     "sdxl": 7_000,       # ~7GB for SDXL
     "z-image": 14_000,   # ~14GB for Z-Image-Turbo (8B model)
     "flux": 16_000,      # ~16GB for Flux
+    "longcat": 19_000,   # ~19GB for LongCat-Image-Edit
     "default": 8_000,    # Default estimate
 }
 
@@ -34,6 +65,8 @@ def estimate_image_memory(model_id: str) -> float:
     """
     model_id_lower = model_id.lower()
     
+    if "longcat" in model_id_lower:
+        return IMAGE_MEMORY_ESTIMATES["longcat"]
     if "z-image" in model_id_lower:
         return IMAGE_MEMORY_ESTIMATES["z-image"]
     if "flux" in model_id_lower:
@@ -108,20 +141,87 @@ def load_image_pipeline(model_id: str) -> tuple[object, float]:
     return pipe, memory_estimate
 
 
-def load_image2image_pipeline(model_id: str) -> tuple[object, float]:
+def is_longcat_model(model_id: str) -> bool:
+    """Check if model is LongCat-Image-Edit"""
+    return "longcat" in model_id.lower()
+
+
+def load_longcat_pipeline(model_id: str) -> tuple[object, float]:
     """
-    Load image-to-image pipeline.
+    Load LongCat-Image-Edit pipeline.
     
-    Supports SDXL-based models like:
-    - stabilityai/stable-diffusion-xl-refiner-1.0
-    - Heartsync/NSFW-Uncensored
+    LongCat-Image-Edit is a SOTA bilingual (Chinese-English) image editing model.
+    It supports global/local editing, text modification, and reference-guided editing.
+    
+    Requirements:
+    - Install: pip install git+https://github.com/meituan-longcat/LongCat-Image.git
+    - VRAM: ~19GB with CPU offload
     
     Args:
-        model_id: HuggingFace model ID
+        model_id: HuggingFace model ID (meituan-longcat/LongCat-Image-Edit)
         
     Returns:
         Tuple of (Pipeline, estimated_memory_mb)
     """
+    from diffusers import DiffusionPipeline
+    from transformers import AutoProcessor
+    
+    logger.info(f"Loading LongCat-Image-Edit model: {model_id}")
+    
+    try:
+        # LongCat uses custom pipeline with trust_remote_code
+        pipe = DiffusionPipeline.from_pretrained(
+            model_id,
+            torch_dtype=torch.bfloat16,
+            trust_remote_code=True,
+            use_safetensors=True,
+        )
+        
+        # Use CPU offload to save VRAM (~19GB required)
+        if get_device() == "cuda":
+            pipe.enable_model_cpu_offload()
+        
+        memory_estimate = estimate_image_memory(model_id)
+        logger.info(f"LongCat model {model_id} loaded, estimated memory: {memory_estimate}MB")
+        
+        return pipe, memory_estimate
+        
+    except Exception as e:
+        logger.error(
+            f"Failed to load LongCat model: {e}. "
+            "Please install LongCat: pip install git+https://github.com/meituan-longcat/LongCat-Image.git"
+        )
+        raise RuntimeError(
+            f"LongCat model requires longcat_image package. "
+            f"Run: pip install git+https://github.com/meituan-longcat/LongCat-Image.git\n"
+            f"Original error: {e}"
+        ) from e
+
+
+def load_image2image_pipeline(model_id: str) -> tuple[object, float]:
+    """
+    Load image-to-image pipeline with optional LoRA support.
+    
+    Supports:
+    - SDXL-based models (stabilityai/stable-diffusion-xl-refiner-1.0, etc.)
+    - LongCat-Image-Edit (meituan-longcat/LongCat-Image-Edit)
+    - Virtual LoRA model IDs (e.g., "nsfw-undress")
+    
+    Args:
+        model_id: HuggingFace model ID or virtual LoRA model ID
+        
+    Returns:
+        Tuple of (Pipeline, estimated_memory_mb)
+    """
+    # Check if this is a virtual LoRA model ID
+    lora_config = get_lora_config(model_id)
+    if lora_config:
+        return load_image2image_with_lora(lora_config)
+    
+    # LongCat has its own custom pipeline (no LoRA support)
+    if is_longcat_model(model_id):
+        return load_longcat_pipeline(model_id)
+    
     from diffusers import AutoPipelineForImage2Image
     
     logger.info(f"Loading image2image model: {model_id}")
@@ -140,6 +240,56 @@ def load_image2image_pipeline(model_id: str) -> tuple[object, float]:
     
     memory_estimate = estimate_image_memory(model_id)
     logger.info(f"Image2image model {model_id} loaded, estimated memory: {memory_estimate}MB")
+    
+    return pipe, memory_estimate
+
+
+def load_image2image_with_lora(config: LoRAConfig) -> tuple[object, float]:
+    """
+    Load image-to-image pipeline with LoRA adapter.
+    
+    Args:
+        config: LoRA configuration with base model and adapter info
+        
+    Returns:
+        Tuple of (Pipeline, estimated_memory_mb)
+    """
+    from diffusers import AutoPipelineForImage2Image
+    
+    logger.info(f"Loading image2image model with LoRA: {config.base_model_id} + {config.lora_repo}")
+    
+    # Load base model
+    pipe = AutoPipelineForImage2Image.from_pretrained(
+        config.base_model_id,
+        torch_dtype=get_dtype(),
+        use_safetensors=True,
+        variant="fp16" if get_dtype() in [torch.bfloat16, torch.float16] else None,
+    )
+    
+    # Load LoRA weights
+    logger.info(f"Loading LoRA weights from: {config.lora_repo}")
+    try:
+        if config.lora_weight_name:
+            pipe.load_lora_weights(config.lora_repo, weight_name=config.lora_weight_name)
+        else:
+            pipe.load_lora_weights(config.lora_repo)
+        
+        # Set LoRA scale using fuse_lora for better performance
+        pipe.fuse_lora(lora_scale=config.lora_scale)
+        logger.info(f"LoRA fused successfully with scale {config.lora_scale}")
+    except Exception as e:
+        logger.error(f"Failed to load LoRA weights: {e}")
+        raise RuntimeError(f"Failed to load LoRA from {config.lora_repo}: {e}") from e
+    
+    pipe.to(get_device())
+    if get_device() == "cuda":
+        pipe.enable_model_cpu_offload()
+        if hasattr(pipe, "enable_vae_slicing"):
+            pipe.enable_vae_slicing()
+    
+    # Estimate memory: base model + LoRA overhead (~300MB)
+    memory_estimate = estimate_image_memory(config.base_model_id) + 300
+    logger.info(f"Image2image+LoRA loaded, estimated memory: {memory_estimate}MB")
     
     return pipe, memory_estimate
 
@@ -177,5 +327,6 @@ def unload_image_pipeline(pipe: object) -> float:
     
     logger.info(f"Image pipeline unloaded, freed ~{freed_memory:.0f}MB")
     return freed_memory
+
 
 

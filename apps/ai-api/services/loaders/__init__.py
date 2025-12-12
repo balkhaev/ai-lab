@@ -7,6 +7,7 @@ from services.loaders.image import (
     load_image2image_pipeline,
     unload_image_pipeline,
     estimate_image_memory,
+    is_longcat_model,
 )
 from services.loaders.video import (
     load_video_pipeline,
@@ -32,6 +33,7 @@ __all__ = [
     "load_image2image_pipeline",
     "unload_image_pipeline",
     "estimate_image_memory",
+    "is_longcat_model",
     # Video
     "load_video_pipeline",
     "unload_video_pipeline",

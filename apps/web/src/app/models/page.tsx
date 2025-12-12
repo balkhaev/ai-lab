@@ -23,6 +23,8 @@ import {
   Zap,
 } from "lucide-react";
 import { useState } from "react";
+import { PageHeader, PageLayout, SettingsSidebar } from "@/components/layout";
+import { TipsCard } from "@/components/tips-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -275,6 +278,16 @@ function formatRelativeTime(isoString: string | null): string {
   return formatDate(isoString);
 }
 
+function formatGb(gb: number | null): string {
+  if (gb === null) {
+    return "N/A";
+  }
+  if (gb >= 1024) {
+    return `${(gb / 1024).toFixed(1)} TB`;
+  }
+  return `${gb.toFixed(1)} GB`;
+}
+
 function ModelCard({
   model,
   onUnload,
@@ -399,92 +412,6 @@ function ModelCard({
   );
 }
 
-function GpuMemoryCard({
-  total,
-  used,
-  free,
-}: {
-  total: number | null;
-  used: number | null;
-  free: number | null;
-}) {
-  const usagePercent = total && used ? Math.round((used / total) * 100) : 0;
-
-  return (
-    <CardGlass>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <MemoryStick className="h-5 w-5 text-primary" />
-          GPU Память
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Использовано</span>
-            <span className="font-medium font-mono">
-              {formatBytes(used)} / {formatBytes(total)}
-            </span>
-          </div>
-          <Progress className="h-2" value={usagePercent} />
-          <div className="flex justify-between text-muted-foreground text-xs">
-            <span>{usagePercent}% использовано</span>
-            <span>{formatBytes(free)} свободно</span>
-          </div>
-        </div>
-      </CardContent>
-    </CardGlass>
-  );
-}
-
-function formatGb(gb: number | null): string {
-  if (gb === null) {
-    return "N/A";
-  }
-  if (gb >= 1024) {
-    return `${(gb / 1024).toFixed(1)} TB`;
-  }
-  return `${gb.toFixed(1)} GB`;
-}
-
-function DiskUsageCard({
-  total,
-  used,
-  free,
-}: {
-  total: number | null;
-  used: number | null;
-  free: number | null;
-}) {
-  const usagePercent = total && used ? Math.round((used / total) * 100) : 0;
-
-  return (
-    <CardGlass>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <HardDrive className="h-5 w-5 text-blue-500" />
-          Диск (кэш моделей)
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Использовано</span>
-            <span className="font-medium font-mono">
-              {formatGb(used)} / {formatGb(total)}
-            </span>
-          </div>
-          <Progress className="h-2" value={usagePercent} />
-          <div className="flex justify-between text-muted-foreground text-xs">
-            <span>{usagePercent}% использовано</span>
-            <span>{formatGb(free)} свободно</span>
-          </div>
-        </div>
-      </CardContent>
-    </CardGlass>
-  );
-}
-
 function CachedModelCard({
   model,
   onDelete,
@@ -590,6 +517,7 @@ export default function ModelsPage() {
   const [loadingToGpuModelId, setLoadingToGpuModelId] = useState<string | null>(
     null
   );
+  const [showSettings, setShowSettings] = useState(false);
 
   // GPU models query
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
@@ -608,7 +536,7 @@ export default function ModelsPage() {
   } = useQuery({
     queryKey: ["cachedModels"],
     queryFn: getCachedModels,
-    refetchInterval: 30_000, // Less frequent - cache changes less often
+    refetchInterval: 30_000,
   });
 
   const loadMutation = useMutation({
@@ -686,7 +614,6 @@ export default function ModelsPage() {
 
   const handleLoadCachedToGpu = (model: CachedModel) => {
     setLoadingToGpuModelId(model.repo_id);
-    // Try to infer model type from repo_id or default to llm
     const modelType = inferModelType(model.repo_id);
     loadMutation.mutate(
       {
@@ -713,7 +640,6 @@ export default function ModelsPage() {
     ) || [];
   const cachedModels = cacheData?.models || [];
 
-  // Helper to infer model type from repo_id
   function inferModelType(repoId: string): ModelType {
     const lowerRepoId = repoId.toLowerCase();
     if (
@@ -743,40 +669,130 @@ export default function ModelsPage() {
     return "llm";
   }
 
-  return (
-    <div className="container max-w-6xl p-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="mb-2 font-bold text-2xl tracking-tight">
-            <span className="gradient-neon-text">Управление</span> моделями
-          </h1>
-          <p className="text-muted-foreground">
-            Загружайте и выгружайте модели для оптимизации GPU памяти
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            disabled={isRefetching}
-            onClick={() => refetch()}
-            size="sm"
-            variant="outline"
-          >
-            <RefreshCw
-              className={cn("mr-2 h-4 w-4", isRefetching ? "animate-spin" : "")}
-            />
-            Обновить
-          </Button>
-          <Button
-            onClick={() => setLoadDialogOpen(true)}
-            size="sm"
-            variant="neon"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Загрузить модель
-          </Button>
-        </div>
+  // GPU Memory usage
+  const usagePercent =
+    data?.gpu_memory_total_mb && data?.gpu_memory_used_mb
+      ? Math.round((data.gpu_memory_used_mb / data.gpu_memory_total_mb) * 100)
+      : 0;
+
+  // Disk usage
+  const diskUsagePercent =
+    data?.disk_total_gb && data?.disk_used_gb
+      ? Math.round((data.disk_used_gb / data.disk_total_gb) * 100)
+      : 0;
+
+  const sidebarContent = (
+    <div className="space-y-6">
+      {/* GPU Memory Card */}
+      <CardGlass>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MemoryStick className="h-5 w-5 text-primary" />
+            GPU Память
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Использовано</span>
+              <span className="font-medium font-mono">
+                {formatBytes(data?.gpu_memory_used_mb ?? null)} /{" "}
+                {formatBytes(data?.gpu_memory_total_mb ?? null)}
+              </span>
+            </div>
+            <Progress className="h-2" value={usagePercent} />
+            <div className="flex justify-between text-muted-foreground text-xs">
+              <span>{usagePercent}% использовано</span>
+              <span>
+                {formatBytes(data?.gpu_memory_free_mb ?? null)} свободно
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </CardGlass>
+
+      {/* Disk Usage Card */}
+      <CardGlass>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <HardDrive className="h-5 w-5 text-blue-500" />
+            Диск (кэш моделей)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Использовано</span>
+              <span className="font-medium font-mono">
+                {formatGb(data?.disk_used_gb ?? null)} /{" "}
+                {formatGb(data?.disk_total_gb ?? null)}
+              </span>
+            </div>
+            <Progress className="h-2" value={diskUsagePercent} />
+            <div className="flex justify-between text-muted-foreground text-xs">
+              <span>{diskUsagePercent}% использовано</span>
+              <span>{formatGb(data?.disk_free_gb ?? null)} свободно</span>
+            </div>
+          </div>
+        </CardContent>
+      </CardGlass>
+
+      {/* Quick Actions */}
+      <div className="space-y-3">
+        <Label className="font-medium text-sm">Быстрые действия</Label>
+        <Button
+          className="w-full"
+          onClick={() => setLoadDialogOpen(true)}
+          variant="neon"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Загрузить модель
+        </Button>
+        <Button
+          className="w-full"
+          disabled={isRefetching}
+          onClick={() => refetch()}
+          variant="outline"
+        >
+          <RefreshCw
+            className={cn("mr-2 h-4 w-4", isRefetching ? "animate-spin" : "")}
+          />
+          Обновить
+        </Button>
       </div>
+
+      {/* Tips */}
+      <TipsCard
+        tips={[
+          "Загрузите модель в GPU для быстрой генерации",
+          "Выгружайте неиспользуемые модели для освобождения памяти",
+          "Скачайте модели на диск для быстрой загрузки",
+          "LRU автоматически выгружает старые модели",
+        ]}
+      />
+    </div>
+  );
+
+  return (
+    <PageLayout
+      sidebar={
+        <SettingsSidebar
+          onOpenChange={setShowSettings}
+          open={showSettings}
+          title="Ресурсы"
+        >
+          {sidebarContent}
+        </SettingsSidebar>
+      }
+    >
+      {/* Header */}
+      <PageHeader
+        description="Загружайте и выгружайте модели для оптимизации GPU памяти"
+        highlight="Управление"
+        onSettingsToggle={() => setShowSettings(true)}
+        showSettingsToggle
+        title="Управление моделями"
+      />
 
       {/* Error state */}
       {error ? (
@@ -817,20 +833,6 @@ export default function ModelsPage() {
       {/* Content */}
       {data ? (
         <div className="space-y-6">
-          {/* System Stats */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <GpuMemoryCard
-              free={data.gpu_memory_free_mb}
-              total={data.gpu_memory_total_mb}
-              used={data.gpu_memory_used_mb}
-            />
-            <DiskUsageCard
-              free={data.disk_free_gb}
-              total={data.disk_total_gb}
-              used={data.disk_used_gb}
-            />
-          </div>
-
           {/* Loaded models */}
           {loadedModels.length > 0 && (
             <div>
@@ -839,7 +841,7 @@ export default function ModelsPage() {
                 Активные модели
                 <Badge variant="secondary">{loadedModels.length}</Badge>
               </h2>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 {loadedModels.map((model) => (
                   <ModelCard
                     isUnloading={unloadingModelId === model.model_id}
@@ -859,7 +861,7 @@ export default function ModelsPage() {
                 <Loader2 className="h-5 w-5 animate-spin text-yellow-500" />В
                 процессе
               </h2>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 {otherModels.map((model) => (
                   <ModelCard
                     isUnloading={false}
@@ -876,21 +878,16 @@ export default function ModelsPage() {
 
           {/* Empty state for GPU models */}
           {loadedModels.length === 0 && otherModels.length === 0 && (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="mb-4 rounded-full bg-secondary p-4">
-                  <MemoryStick className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="mb-2 font-medium">Нет загруженных моделей</h3>
-                <p className="mb-4 max-w-sm text-muted-foreground text-sm">
-                  Загрузите модель в GPU, чтобы начать генерацию.
-                </p>
-                <Button onClick={() => setLoadDialogOpen(true)} variant="neon">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Загрузить модель
-                </Button>
-              </CardContent>
-            </Card>
+            <EmptyState
+              action={{
+                label: "Загрузить модель",
+                onClick: () => setLoadDialogOpen(true),
+                icon: Plus,
+              }}
+              description="Загрузите модель в GPU, чтобы начать генерацию."
+              icon={MemoryStick}
+              title="Нет загруженных моделей"
+            />
           )}
 
           {/* Cached models section */}
@@ -926,7 +923,7 @@ export default function ModelsPage() {
 
             {/* Cache loading state */}
             {isCacheLoading ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 {[1, 2, 3].map((i) => (
                   <Card key={i}>
                     <CardContent className="pt-6">
@@ -964,7 +961,7 @@ export default function ModelsPage() {
 
             {/* Cached models grid */}
             {Boolean(cacheData) && cachedModels.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 {cachedModels.map((model) => (
                   <CachedModelCard
                     isDeleting={deletingModelId === model.repo_id}
@@ -982,25 +979,16 @@ export default function ModelsPage() {
             {Boolean(cacheData) &&
             cachedModels.length === 0 &&
             !isCacheLoading ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="mb-4 rounded-full bg-secondary p-4">
-                    <HardDrive className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="mb-2 font-medium">Кэш пуст</h3>
-                  <p className="mb-4 max-w-sm text-muted-foreground text-sm">
-                    Скачайте модели на диск для быстрой последующей загрузки в
-                    GPU.
-                  </p>
-                  <Button
-                    onClick={() => setLoadDialogOpen(true)}
-                    variant="outline"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Скачать модель
-                  </Button>
-                </CardContent>
-              </Card>
+              <EmptyState
+                action={{
+                  label: "Скачать модель",
+                  onClick: () => setLoadDialogOpen(true),
+                  icon: Download,
+                }}
+                description="Скачайте модели на диск для быстрой последующей загрузки в GPU."
+                icon={HardDrive}
+                title="Кэш пуст"
+              />
             ) : null}
           </div>
         </div>
@@ -1155,6 +1143,6 @@ export default function ModelsPage() {
           ) : null}
         </DialogContent>
       </Dialog>
-    </div>
+    </PageLayout>
   );
 }

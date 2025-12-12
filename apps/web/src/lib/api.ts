@@ -1,22 +1,86 @@
+// Re-export types from shared package
+export type {
+  CachedModel,
+  CacheListResponse,
+  ChatMessage,
+  CompareChunk,
+  CompareModelDone,
+  ContentPart,
+  CreateTaskParams,
+  DeleteCacheResponse,
+  DownloadModelRequest,
+  DownloadModelResponse,
+  HealthResponse,
+  Image2ImageModelsResponse,
+  Image2ImagePreset,
+  Image2ImageResponse,
+  ImageContent,
+  ImageGenerationParams,
+  ImageGenerationResponse,
+  ImageModelsResponse,
+  ImagePreset,
+  ImageTo3DModelsResponse,
+  ImageTo3DPreset,
+  ImageTo3DResult,
+  ImageTo3DTaskResponse,
+  LLMModelsResponse,
+  LLMPreset,
+  LLMPromptFormat,
+  LoadModelRequest,
+  LoadModelResponse,
+  Model,
+  ModelInfo,
+  ModelStatus,
+  ModelsListResponse,
+  ModelType,
+  QueueStats,
+  Task,
+  TaskListResponse,
+  TaskResult,
+  TaskStatus,
+  TaskType,
+  TextContent,
+  UnloadModelRequest,
+  UnloadModelResponse,
+  VideoModelsResponse,
+  VideoPreset,
+  VideoTaskResponse,
+} from "@ai-lab/shared/types";
+
+import type {
+  CacheListResponse,
+  ChatMessage,
+  CompareChunk,
+  CompareModelDone,
+  ContentPart,
+  CreateTaskParams,
+  DeleteCacheResponse,
+  DownloadModelRequest,
+  DownloadModelResponse,
+  Image2ImageModelsResponse,
+  Image2ImageResponse,
+  ImageGenerationParams,
+  ImageGenerationResponse,
+  ImageModelsResponse,
+  ImageTo3DModelsResponse,
+  ImageTo3DTaskResponse,
+  LLMModelsResponse,
+  LLMPreset,
+  LoadModelRequest,
+  LoadModelResponse,
+  Model,
+  ModelsListResponse,
+  QueueStats,
+  Task,
+  TaskListResponse,
+  TaskResult,
+  UnloadModelRequest,
+  UnloadModelResponse,
+  VideoModelsResponse,
+  VideoTaskResponse,
+} from "@ai-lab/shared/types";
+
 const API_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:3000";
-
-// Multimodal content types
-export type TextContent = {
-  type: "text";
-  text: string;
-};
-
-export type ImageContent = {
-  type: "image_url";
-  image_url: { url: string };
-};
-
-export type ContentPart = TextContent | ImageContent;
-
-export type ChatMessage = {
-  role: "system" | "user" | "assistant";
-  content: string | ContentPart[];
-};
 
 // Helper to create text-only message
 export function textMessage(
@@ -55,102 +119,7 @@ export function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-export type LLMPromptFormat =
-  | "chatml"
-  | "mistral"
-  | "llama2"
-  | "llama3"
-  | "alpaca";
-
-export type LLMPreset = {
-  model_id: string;
-  name: string;
-  description: string;
-  prompt_format: LLMPromptFormat;
-  temperature: number;
-  top_p: number;
-  top_k: number;
-  max_tokens: number;
-  min_temperature: number;
-  max_temperature: number;
-  supports_system_prompt: boolean;
-  supports_vision: boolean;
-};
-
-export type Model = {
-  name: string;
-  model_id?: string; // Full HuggingFace model ID (for presets)
-  size: number;
-  modified_at: string;
-  preset: LLMPreset | null;
-  loaded: boolean;
-};
-
-export type LLMModelsResponse = {
-  models: Model[];
-  presets: Record<string, LLMPreset>;
-};
-
-export type ImageGenerationParams = {
-  prompt: string;
-  negative_prompt?: string;
-  width?: number;
-  height?: number;
-  num_inference_steps?: number;
-  guidance_scale?: number;
-  seed?: number;
-  model?: string;
-};
-
-export type ImagePreset = {
-  model_id: string;
-  name: string;
-  description: string;
-  num_inference_steps: number;
-  guidance_scale: number;
-  width: number;
-  height: number;
-  min_guidance: number;
-  max_guidance: number;
-  min_steps: number;
-  max_steps: number;
-  supports_negative_prompt: boolean;
-};
-
-export type Image2ImagePreset = {
-  model_id: string;
-  name: string;
-  description: string;
-  num_inference_steps: number;
-  guidance_scale: number;
-  strength: number;
-  min_guidance: number;
-  max_guidance: number;
-  min_steps: number;
-  max_steps: number;
-  supports_negative_prompt: boolean;
-};
-
-export type ImageModelsResponse = {
-  models: string[];
-  current_model: string | null;
-  presets: Record<string, ImagePreset>;
-};
-
-export type ImageGenerationResponse = {
-  image_base64: string;
-  seed: number;
-  generation_time: number;
-};
-
-export type VideoTaskResponse = {
-  task_id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  progress: number | null;
-  video_base64: string | null;
-  error: string | null;
-};
-
+// Image2ImageParams kept here as it uses File which is browser-specific
 export type Image2ImageParams = {
   image: File;
   prompt: string;
@@ -162,16 +131,12 @@ export type Image2ImageParams = {
   model?: string;
 };
 
-export type Image2ImageModelsResponse = {
-  models: string[];
-  current_model: string | null;
-  presets: Record<string, Image2ImagePreset>;
-};
-
-export type Image2ImageResponse = {
-  image_base64: string;
-  seed: number;
-  generation_time: number;
+// ImageTo3DParams kept here as it uses File which is browser-specific
+export type ImageTo3DParams = {
+  image: File;
+  model?: string;
+  camera_intrinsics?: number[][];
+  camera_pose?: number[][];
 };
 
 // LLM API
@@ -284,19 +249,6 @@ export async function* streamChat(
     }
   }
 }
-
-export type CompareChunk = {
-  model: string;
-  content: string;
-  done: boolean;
-};
-
-export type CompareModelDone = {
-  model: string;
-  fullContent: string;
-  duration: number;
-  eval_count?: number;
-};
 
 export async function* streamCompare(
   models: string[],
@@ -446,6 +398,18 @@ export async function generateImage2Image(
   return response.json() as Promise<Image2ImageResponse>;
 }
 
+export async function getVideoModels(): Promise<VideoModelsResponse> {
+  const response = await fetch(`${API_URL}/api/media/video/models`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to get video models");
+  }
+
+  return response.json() as Promise<VideoModelsResponse>;
+}
+
 export async function generateVideo(
   image: File,
   prompt: string,
@@ -454,6 +418,7 @@ export async function generateVideo(
     guidance_scale?: number;
     num_frames?: number;
     seed?: number;
+    model?: string;
   }
 ): Promise<Task> {
   const formData = new FormData();
@@ -474,6 +439,9 @@ export async function generateVideo(
   }
   if (options?.seed) {
     formData.append("seed", options.seed.toString());
+  }
+  if (options?.model) {
+    formData.append("model", options.model);
   }
 
   const response = await fetch(`${API_URL}/api/media/video`, {
@@ -522,54 +490,6 @@ export async function getMediaHealth(): Promise<{
 }
 
 // ==================== Image-to-3D API ====================
-
-export type ImageTo3DPreset = {
-  model_id: string;
-  name: string;
-  description: string;
-  outputs: {
-    point_cloud: boolean;
-    depth_map: boolean;
-    normal_map: boolean;
-    gaussians: boolean;
-    camera_params: boolean;
-  };
-  vram_gb: number;
-  supports_camera_intrinsics: boolean;
-  supports_camera_pose: boolean;
-  supports_depth_prior: boolean;
-};
-
-export type ImageTo3DModelsResponse = {
-  models: string[];
-  current_model: string | null;
-  presets: Record<string, ImageTo3DPreset>;
-};
-
-export type ImageTo3DParams = {
-  image: File;
-  model?: string;
-  camera_intrinsics?: number[][];
-  camera_pose?: number[][];
-};
-
-export type ImageTo3DResult = {
-  point_cloud_ply_base64: string | null;
-  point_cloud_array: number[][] | null;
-  depth_map: number[][] | null;
-  normal_map: number[][][] | null;
-  camera_params: Record<string, unknown> | null;
-  gaussians: Record<string, unknown> | null;
-  generation_time: number;
-};
-
-export type ImageTo3DTaskResponse = {
-  task_id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  progress: number | null;
-  result: ImageTo3DResult | null;
-  error: string | null;
-};
 
 export async function getImageTo3DModels(): Promise<ImageTo3DModelsResponse> {
   const response = await fetch(`${API_URL}/api/media/image-to-3d/models`, {
@@ -634,62 +554,6 @@ export async function getImageTo3DStatus(
 }
 
 // Model Management API
-export type ModelType =
-  | "llm"
-  | "image"
-  | "image2image"
-  | "video"
-  | "image_to_3d";
-export type ModelStatus =
-  | "not_loaded"
-  | "loading"
-  | "loaded"
-  | "unloading"
-  | "error";
-
-export type ModelInfo = {
-  model_id: string;
-  model_type: ModelType;
-  status: ModelStatus;
-  name: string;
-  loaded_at: string | null;
-  memory_usage_mb: number | null;
-  error: string | null;
-};
-
-export type ModelsListResponse = {
-  models: ModelInfo[];
-  gpu_memory_total_mb: number | null;
-  gpu_memory_used_mb: number | null;
-  gpu_memory_free_mb: number | null;
-  disk_total_gb: number | null;
-  disk_used_gb: number | null;
-  disk_free_gb: number | null;
-};
-
-export type LoadModelRequest = {
-  model_id: string;
-  model_type: ModelType;
-  force?: boolean;
-};
-
-export type LoadModelResponse = {
-  model_id: string;
-  status: ModelStatus;
-  message: string;
-};
-
-export type UnloadModelRequest = {
-  model_id: string;
-  model_type: ModelType;
-};
-
-export type UnloadModelResponse = {
-  model_id: string;
-  status: ModelStatus;
-  message: string;
-  freed_memory_mb: number | null;
-};
 
 export async function getModelsList(): Promise<ModelsListResponse> {
   const response = await fetch(`${API_URL}/api/models`, {
@@ -758,41 +622,6 @@ export async function switchModel(
 }
 
 // Cache Management API
-export type CachedModel = {
-  repo_id: string;
-  repo_type: string;
-  size_on_disk: number;
-  nb_files: number;
-  last_accessed: string | null;
-  last_modified: string | null;
-  revisions: string[];
-};
-
-export type CacheListResponse = {
-  models: CachedModel[];
-  total_size_bytes: number;
-  cache_dir: string;
-};
-
-export type DownloadModelRequest = {
-  repo_id: string;
-  model_type: ModelType;
-  revision?: string;
-};
-
-export type DownloadModelResponse = {
-  repo_id: string;
-  status: string;
-  message: string;
-  size_bytes: number | null;
-};
-
-export type DeleteCacheResponse = {
-  repo_id: string;
-  status: string;
-  message: string;
-  freed_bytes: number | null;
-};
 
 export async function getCachedModels(): Promise<CacheListResponse> {
   const response = await fetch(`${API_URL}/api/models/cache`, {
@@ -844,48 +673,6 @@ export async function deleteCachedModel(
 }
 
 // Task Queue API
-export type TaskType = "video" | "image" | "image2image" | "llm_compare";
-export type TaskStatus =
-  | "pending"
-  | "processing"
-  | "completed"
-  | "failed"
-  | "cancelled";
-
-export type Task = {
-  id: string;
-  type: TaskType;
-  status: TaskStatus;
-  progress: number;
-  error: string | null;
-  created_at: string;
-  updated_at: string;
-  user_id: string | null;
-};
-
-export type TaskResult = {
-  id: string;
-  type: TaskType;
-  status: TaskStatus;
-  result: Record<string, unknown> | null;
-  error: string | null;
-};
-
-export type TaskListResponse = {
-  tasks: Task[];
-  total: number;
-};
-
-export type QueueStats = {
-  pending: number;
-  processing: number;
-};
-
-export type CreateTaskParams = {
-  type: TaskType;
-  params: Record<string, unknown>;
-  user_id?: string;
-};
 
 export async function createTask(request: CreateTaskParams): Promise<Task> {
   const response = await fetch(`${API_URL}/api/tasks`, {

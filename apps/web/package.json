@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ai-lab/auth": "workspace:*",
+    "@ai-lab/shared": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "catalog:",
     "@radix-ui/react-accordion": "^1.2.12",
