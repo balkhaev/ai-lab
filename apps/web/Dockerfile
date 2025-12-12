@@ -24,12 +24,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy dependencies
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages ./packages
-
-# Copy pruned source files
+# Copy pruned source files FIRST
 COPY --from=pruner /app/out/full/ .
+
+# Copy node_modules AFTER (so it doesn't get overwritten)
+COPY --from=deps /app/node_modules ./node_modules
 
 # Generate Prisma client
 WORKDIR /app/packages/db
