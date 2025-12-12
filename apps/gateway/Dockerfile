@@ -42,6 +42,13 @@ COPY --from=builder --chown=appuser:appgroup /app/apps/gateway/dist ./dist
 COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appgroup /app/apps/gateway/package.json ./
 
+# Copy Prisma schema and migrations for runtime migrations
+COPY --from=builder --chown=appuser:appgroup /app/packages/db/prisma ./prisma
+
+# Copy entrypoint script
+COPY --chown=appuser:appgroup apps/gateway/entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
 ENV NODE_ENV=production
 ENV PORT=3000
 
@@ -52,4 +59,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
-CMD ["bun", "run", "start"]
+ENTRYPOINT ["./entrypoint.sh"]

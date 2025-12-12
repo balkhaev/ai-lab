@@ -32,7 +32,7 @@ export default function SignUpForm({
         },
         {
           onSuccess: () => {
-            router.push("/dashboard");
+            router.push("/");
             toast.success("Регистрация прошла успешно");
           },
           onError: (error) => {
