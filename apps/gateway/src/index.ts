@@ -30,5 +30,6 @@ app.route("/api/models", modelsRoutes);
 app.route("/api/tasks", tasksRoutes);
 
 app.get("/", (c) => c.text("OK"));
+app.get("/health", (c) => c.json({ status: "ok" }));
 
 export default app;
