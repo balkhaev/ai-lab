@@ -30,9 +30,9 @@ COPY --from=pruner /app/out/full/ .
 # Copy node_modules AFTER (so it doesn't get overwritten)
 COPY --from=deps /app/node_modules ./node_modules
 
-# Generate Prisma client
+# Generate Prisma client (use --schema directly to avoid prisma.config.ts issues)
 WORKDIR /app/packages/db
-RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npx prisma generate
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npx prisma generate --schema=./prisma/schema
 
 # Build arguments for environment variables
 ARG NEXT_PUBLIC_GATEWAY_URL
