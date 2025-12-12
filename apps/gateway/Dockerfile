@@ -19,10 +19,10 @@ RUN bun install --frozen-lockfile
 COPY packages/ ./packages/
 COPY apps/gateway/ ./apps/gateway/
 
-# Generate Prisma client (remove configs to avoid module resolution issues)
+# Generate Prisma client
 WORKDIR /app/packages/db
-RUN rm -f prisma.config.ts tsconfig.json && \
-    DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" bunx prisma generate --schema=./prisma/schema
+RUN rm -f tsconfig.json && \
+    DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" bunx prisma generate
 
 # Build
 WORKDIR /app/apps/gateway
@@ -42,8 +42,9 @@ COPY --from=builder --chown=appuser:appgroup /app/apps/gateway/dist ./dist
 COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=builder --chown=appuser:appgroup /app/apps/gateway/package.json ./
 
-# Copy Prisma schema and migrations for runtime migrations
+# Copy Prisma schema, migrations and config for runtime migrations
 COPY --from=builder --chown=appuser:appgroup /app/packages/db/prisma ./prisma
+COPY --from=builder --chown=appuser:appgroup /app/packages/db/prisma.config.docker.ts ./prisma/prisma.config.ts
 
 # Copy entrypoint script
 COPY --chown=appuser:appgroup apps/gateway/entrypoint.sh ./entrypoint.sh
