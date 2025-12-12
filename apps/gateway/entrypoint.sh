@@ -8,10 +8,13 @@ cd /app
 # Run migrations only if RUN_MIGRATIONS=true
 if [ "$RUN_MIGRATIONS" = "true" ]; then
     echo "Running database migrations..."
-    if ./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema; then
+    MIGRATION_OUTPUT=$(./node_modules/.bin/prisma migrate deploy --schema=./prisma/schema 2>&1)
+    MIGRATION_EXIT=$?
+    echo "$MIGRATION_OUTPUT"
+    if [ $MIGRATION_EXIT -eq 0 ]; then
         echo "Migrations completed successfully"
     else
-        echo "WARNING: Migration failed (exit code: $?)"
+        echo "WARNING: Migration failed (exit code: $MIGRATION_EXIT)"
         echo "Continuing startup anyway..."
     fi
 else
