@@ -23,10 +23,6 @@
 ### Локальный запуск
 
 ```bash
-# Создание виртуального окружения
-python -m venv .venv
-source .venv/bin/activate
-
 # Установка зависимостей
 pip install -r requirements.txt
 
@@ -505,7 +501,7 @@ curl -X POST http://localhost:8000/generate/image \
 **Решение:**
 
 ```bash
-pip install git+https://github.com/huggingface/diffusers.git -U
+python -m pip install git+https://github.com/huggingface/diffusers.git -U
 ```
 
 **Альтернатива:** Использовать SDXL модель вместо Z-Image:

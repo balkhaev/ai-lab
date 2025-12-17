@@ -149,6 +149,24 @@ export const IMAGE_PRESETS: Record<string, ImagePreset> = {
     max_steps: 50,
     supports_negative_prompt: true,
   },
+  "lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1": {
+    model_id: "lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
+    name: "Flux NSFW Uncensored",
+    description:
+      "Flux LoRA модель без цензуры. Высокое качество, ~16GB VRAM. Базируется на FLUX.1-dev.",
+    num_inference_steps: 28,
+    guidance_scale: 3.5,
+    width: 1024,
+    height: 1024,
+    min_guidance: 1.0,
+    max_guidance: 7.0,
+    min_steps: 20,
+    max_steps: 50,
+    supports_negative_prompt: false, // Flux не использует negative prompt
+    base_model_id: "black-forest-labs/FLUX.1-dev",
+    lora_repo: "lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
+    lora_scale: 1.0,
+  },
 };
 
 // Default preset for unknown models (SDXL-like settings)

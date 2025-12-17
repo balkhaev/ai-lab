@@ -24,7 +24,7 @@ class LoRAConfig:
     trigger_word: str | None = None  # Trigger word to add to prompt
 
 
-# Virtual model IDs that map to base model + LoRA
+# Virtual model IDs that map to base model + LoRA (for image2image)
 LORA_MODELS: dict[str, LoRAConfig] = {
     "nsfw-undress": LoRAConfig(
         base_model_id="Heartsync/NSFW-Uncensored",
@@ -34,6 +34,22 @@ LORA_MODELS: dict[str, LoRAConfig] = {
         trigger_word="sexy",
     ),
 }
+
+# LoRA models for text-to-image
+TEXT2IMAGE_LORA_MODELS: dict[str, LoRAConfig] = {
+    "lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1": LoRAConfig(
+        base_model_id="black-forest-labs/FLUX.1-dev",
+        lora_repo="lustlyai/Flux_Lustly.ai_Uncensored_nsfw_v1",
+        lora_weight_name=None,
+        lora_scale=1.0,
+        trigger_word=None,
+    ),
+}
+
+
+def get_text2image_lora_config(model_id: str) -> LoRAConfig | None:
+    """Get LoRA config for a text-to-image model ID"""
+    return TEXT2IMAGE_LORA_MODELS.get(model_id)
 
 
 def get_lora_config(model_id: str) -> LoRAConfig | None:
@@ -89,6 +105,7 @@ def load_image_pipeline(model_id: str) -> tuple[object, float]:
     - Z-Image models (ZImagePipeline): Tongyi-MAI/Z-Image-Turbo
     - SDXL models (StableDiffusionXLPipeline)
     - SD 1.5/2.1 models
+    - Flux models with LoRA support
     
     Args:
         model_id: HuggingFace model ID
@@ -96,6 +113,11 @@ def load_image_pipeline(model_id: str) -> tuple[object, float]:
     Returns:
         Tuple of (DiffusionPipeline, estimated_memory_mb)
     """
+    # Check if this is a LoRA model
+    lora_config = get_text2image_lora_config(model_id)
+    if lora_config:
+        return load_image_pipeline_with_lora(lora_config)
+    
     from diffusers import DiffusionPipeline
     
     logger.info(f"Loading image model: {model_id}")
@@ -137,6 +159,68 @@ def load_image_pipeline(model_id: str) -> tuple[object, float]:
     
     memory_estimate = estimate_image_memory(model_id)
     logger.info(f"Image model {model_id} loaded, estimated memory: {memory_estimate}MB")
+    
+    return pipe, memory_estimate
+
+
+def load_image_pipeline_with_lora(config: LoRAConfig) -> tuple[object, float]:
+    """
+    Load text-to-image pipeline with LoRA adapter.
+    
+    Supports Flux and SDXL base models with LoRA.
+    
+    Args:
+        config: LoRA configuration with base model and adapter info
+        
+    Returns:
+        Tuple of (Pipeline, estimated_memory_mb)
+    """
+    from diffusers import DiffusionPipeline, FluxPipeline
+    
+    logger.info(f"Loading image model with LoRA: {config.base_model_id} + {config.lora_repo}")
+    
+    # Check if this is a Flux model
+    is_flux = "flux" in config.base_model_id.lower()
+    
+    if is_flux:
+        # Flux models require FluxPipeline
+        pipe = FluxPipeline.from_pretrained(
+            config.base_model_id,
+            torch_dtype=torch.bfloat16,  # Flux works best with bfloat16
+        )
+    else:
+        # SDXL and other models
+        pipe = DiffusionPipeline.from_pretrained(
+            config.base_model_id,
+            torch_dtype=get_dtype(),
+            use_safetensors=True,
+            variant="fp16" if get_dtype() in [torch.bfloat16, torch.float16] else None,
+        )
+    
+    # Load LoRA weights
+    logger.info(f"Loading LoRA weights from: {config.lora_repo}")
+    try:
+        if config.lora_weight_name:
+            pipe.load_lora_weights(config.lora_repo, weight_name=config.lora_weight_name)
+        else:
+            pipe.load_lora_weights(config.lora_repo)
+        
+        # Fuse LoRA for better performance
+        pipe.fuse_lora(lora_scale=config.lora_scale)
+        logger.info(f"LoRA fused successfully with scale {config.lora_scale}")
+    except Exception as e:
+        logger.error(f"Failed to load LoRA weights: {e}")
+        raise RuntimeError(f"Failed to load LoRA from {config.lora_repo}: {e}") from e
+    
+    pipe.to(get_device())
+    if get_device() == "cuda":
+        pipe.enable_model_cpu_offload()
+        if hasattr(pipe, "enable_vae_slicing"):
+            pipe.enable_vae_slicing()
+    
+    # Estimate memory: base model + LoRA overhead (~300MB)
+    memory_estimate = estimate_image_memory(config.base_model_id) + 300
+    logger.info(f"Image+LoRA loaded, estimated memory: {memory_estimate}MB")
     
     return pipe, memory_estimate
 

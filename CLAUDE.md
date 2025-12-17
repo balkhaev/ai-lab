@@ -143,11 +143,12 @@ web                    gateway                 ai-api
 
 **Image Presets:**
 
-| Модель          | Steps | Guidance | Neg. Prompt |
-| --------------- | ----- | -------- | ----------- |
-| Z-Image-Turbo   | 9     | 0.0      | ❌          |
-| SDXL Base       | 30    | 7.5      | ✅          |
-| NSFW-Uncensored | 30    | 7.0      | ✅          |
+| Модель              | Steps | Guidance | Neg. Prompt | VRAM  | Notes                      |
+| ------------------- | ----- | -------- | ----------- | ----- | -------------------------- |
+| Z-Image-Turbo       | 9     | 0.0      | ❌          | ~14GB | Быстрая генерация          |
+| SDXL Base           | 30    | 7.5      | ✅          | ~7GB  | Универсальная              |
+| NSFW-Uncensored     | 30    | 7.0      | ✅          | ~7GB  | SDXL без цензуры           |
+| Flux NSFW Uncensored| 28    | 3.5      | ❌          | ~16GB | Flux LoRA, высокое качество|
 
 **Image2Image Presets:**
 

@@ -20,6 +20,12 @@ export type ImagePreset = {
   min_steps: number;
   max_steps: number;
   supports_negative_prompt: boolean;
+  // LoRA configuration (optional)
+  lora_repo?: string; // HuggingFace repo or local path
+  lora_weight_name?: string; // safetensors filename
+  lora_scale?: number; // LoRA adapter weight (default 1.0)
+  lora_trigger_word?: string; // Trigger word to add to prompt
+  base_model_id?: string; // Base model for LoRA (if different from model_id)
 };
 
 export type ImageGenerationParams = {
